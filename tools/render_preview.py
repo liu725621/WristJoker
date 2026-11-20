@@ -22,26 +22,34 @@ FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 FONT_BOLD = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
 
 # ---- 调色板（对齐 Palette.kt 的 G.C 值）----
-FELT_DARK = (22, 38, 42)
-FELT = (55, 66, 68)
-FELT_HI = (95, 115, 119)
-SURFACE = (43, 59, 62)
-SURFACE_HI = (60, 78, 81)
-CHIP = (0, 157, 255)
-MULT = (254, 95, 85)
-MONEY = (243, 185, 88)
-GOLD = (234, 192, 88)
-GREEN = (75, 194, 146)
-BLIND_GREEN = (80, 132, 110)
-BOSS_RED = (180, 68, 48)
-PURPLE = (136, 103, 165)
-CREAM = (242, 239, 230)
-DIM = (155, 182, 189)
-CARD_FACE = (244, 241, 232)
-CARD_EDGE = (55, 66, 68)
-SUIT_RED = (254, 95, 85)
-SUIT_BLACK = (55, 70, 73)
-GOLD_DIM = (138, 115, 56)
+# 1999 design tokens（与 Palette.kt 一一对应）
+INK900 = (27, 23, 19)
+INK800 = (44, 38, 32)
+INK700 = (59, 51, 42)
+AMBER = (224, 163, 92)
+AMBER500 = (217, 142, 74)
+RAIN = (125, 140, 134)
+
+FELT_DARK = INK900
+FELT = INK800
+FELT_HI = (92, 100, 85)
+SURFACE = INK800
+SURFACE_HI = INK700
+CHIP = (94, 155, 176)
+MULT = (201, 96, 79)
+MONEY = (220, 168, 94)
+GOLD = AMBER
+GREEN = (127, 161, 132)
+BLIND_GREEN = (95, 115, 96)
+BOSS_RED = (168, 71, 58)
+PURPLE = (122, 101, 128)
+CREAM = (243, 238, 225)
+DIM = (156, 146, 127)
+CARD_FACE = (232, 225, 209)
+CARD_EDGE = (36, 30, 24)
+SUIT_RED = (176, 74, 62)
+SUIT_BLACK = (36, 30, 24)
+GOLD_DIM = (138, 110, 66)
 
 
 def fill_circle_mask():
@@ -74,21 +82,33 @@ def text(d, cx, cy, s, size, color, anchor="mm", bold=False):
 
 
 def draw_felt(img):
-    """赌桌毡：径向渐变 + 四角暗角。"""
+    """1999 深咖低长调：径向渐变 + 雨滴斜线 + 压印双线。
+
+    与 Compose 的 `FeltBackground` 同步：中心略亮（像顶灯打在纸上），
+    四周落黑；雨滴只在边缘，作为世界观母题的一点暗示。
+    """
     d = ImageDraw.Draw(img)
-    for y in range(W):
-        for step in range(0, 4):
-            pass
-    # 用同心圆近似径向渐变，比逐像素快得多
-    d.rectangle([0, 0, W, W], fill=FELT_DARK)
-    for i in range(60, 0, -1):
-        rad = px(110) * i / 60
-        t = i / 60
-        c = tuple(int(FELT_DARK[k] + (FELT[k] - FELT_DARK[k]) * (1 - t) ** 1.6) for k in range(3))
+    d.rectangle([0, 0, W, W], fill=INK900)
+    for n in range(70, 0, -1):
+        rad = px(112) * n / 70
+        t = n / 70
+        c = tuple(int(INK900[k] + (INK800[k] - INK900[k]) * (1 - t) ** 1.4) for k in range(3))
         d.ellipse(
-            [W / 2 - rad, W / 2 - rad - px(6), W / 2 + rad, W / 2 + rad - px(6)],
+            [W / 2 - rad, W / 2 - rad - px(8), W / 2 + rad, W / 2 + rad - px(8)],
             fill=c,
         )
+    # 雨滴：稀疏细斜线，色值是 RAIN 以 ~10% 混入底色后的结果
+    rain = tuple(int(INK900[k] + (RAIN[k] - INK900[k]) * .10) for k in range(3))
+    for n in range(30):
+        t = ((n * 7919) % 101) / 101
+        ph = ((n * 104729) % 97) / 97
+        x0 = -px(24) + t * px(240)
+        y0 = ph * W
+        ln = W * (.09 + (n % 4) * .035)
+        d.line([(x0, y0), (x0 - ln * .32, y0 + ln)], fill=rain, width=1)
+    # 压印双线
+    d.ellipse([px(1.5), px(1.5), W - px(1.5), W - px(1.5)], outline=(52, 43, 33), width=1)
+    d.ellipse([px(4.5), px(4.5), W - px(4.5), W - px(4.5)], outline=(41, 35, 28), width=1)
     return img
 
 
@@ -193,24 +213,36 @@ def clip_line(x0, y0, x1, y1, box):
     return (x0 + u0 * dx, y0 + u0 * dy, x0 + u1 * dx, y0 + u1 * dy)
 
 
-def draw_cardback(d, cx, cy, w, h, base=(176, 58, 58)):
-    """牌背：暖红底 + 稀疏点阵 + 中心菱形。
+def draw_cardback(d, cx, cy, w, h, base=INK800):
+    """牌背：深咖 + 烫金双线 + 四角星 + 雨滴斜纹。
 
-    小尺寸下用点阵代替原作那种斜网 —— 斜网在 20px 见方里会糊成一片，
-    而且线段的裁剪边界很难画准（第一版就是这么糊出卡片外的）。
+    与 Compose 的 `CardBackArt` 同步。牌背在牌桌上占比最大，
+    它决定整块牌桌的年代感 —— 所以不用红底斜网，用装订边 + 徽记。
     """
     rrect(d, cx, cy, w, h, 3, fill=base, outline=CARD_EDGE, width=2)
     x0, y0 = cx - px(w) / 2, cy - px(h) / 2
     x1, y1 = x0 + px(w), y0 + px(h)
-    yy = y0 + 3
-    while yy < y1 - 2:
-        xx = x0 + 3
-        while xx < x1 - 2:
-            d.point((xx, yy), fill=(216, 192, 188))
-            xx += 4
-        yy += 4
-    r = min(px(w) * .26, px(h) * .30)
-    d.polygon([(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)], fill=CARD_FACE)
+    # 雨滴斜纹
+    step = px(w) / 6
+    k = x0 - px(h)
+    while k < x1 + px(h):
+        d.line([(k, y0 + 2), (k - px(h) * .32, y1 - 2)], fill=(52, 45, 37), width=1)
+        k += step
+    # 烫金双框
+    ix, iy = px(w) * .075, px(h) * .075
+    d.rectangle([x0 + ix, y0 + iy, x1 - ix, y1 - iy], outline=AMBER, width=2)
+    ix2, iy2 = ix * 1.62, iy * 1.62
+    d.rectangle([x0 + ix2, y0 + iy2, x1 - ix2, y1 - iy2], outline=(110, 84, 52), width=1)
+    # 四角星
+    r = px(w) * .23
+    cy2 = cy - px(h) * .04
+    inner = r * .26
+    d.polygon([
+        (cx, cy2 - r), (cx + inner, cy2 - inner), (cx + r, cy2), (cx + inner, cy2 + inner),
+        (cx, cy2 + r), (cx - inner, cy2 + inner), (cx - r, cy2), (cx - inner, cy2 - inner),
+    ], fill=AMBER)
+    d.ellipse([cx - r * .21, cy2 - r * .21, cx + r * .21, cy2 + r * .21], fill=base)
+    d.ellipse([cx - r * .075, cy2 - r * .075, cx + r * .075, cy2 + r * .075], fill=CREAM)
 
 
 def draw_joker_badge(d, cx, cy, size, color, seed=0):
@@ -336,10 +368,10 @@ def screen_menu(img):
         if name == "back":
             draw_cardback(d, cx, cy, 22, 30)
         elif name == "title":
-            text(d, cx + 1, cy + 1, "腕上小丑", 21, FELT_DARK, bold=True)
-            text(d, cx, cy, "腕上小丑", 21, SUIT_RED, bold=True)
+            text(d, cx + 1, cy + 1, "腕上小丑", 21, INK700, bold=True)
+            text(d, cx, cy, "腕上小丑", 21, CREAM, bold=True)
         elif name == "pixel":
-            text(d, cx, cy, "J O K E R", 12, MONEY, bold=True)
+            text(d, cx, cy, "J O K E R", 7.5, AMBER)
         elif name == "hint":
             text(d, cx, cy, "A3 · 小盲注 · $17 · 红注", 7, CREAM)
         elif name == "btn":
@@ -447,7 +479,7 @@ def screen_playing(img):
     d = ImageDraw.Draw(img)
     # 全屏 CRT 扫描线（JuiceBackdrop 常驻层）：每 3dp 一条极淡暗线
     for yy in range(0, img.height, max(1, int(px(3)))):
-        d.line([0, yy, img.width, yy], fill=(18, 32, 36), width=1)
+        d.line([0, yy, img.width, yy], fill=(22, 19, 15), width=1)
     rows, _ = layout_bands([
         ("a", 11, 2),
         ("b", 13, 2),
@@ -465,7 +497,7 @@ def screen_playing(img):
     for name, w, cy, h in rows:
         cx = W / 2
         if name == "a":
-            text(d, cx - px(w) / 2, cy, "A3/8", 7, MONEY, anchor="lm")
+            text(d, cx - px(w) / 2, cy, "AIII/8", 7, MONEY, anchor="lm")
             text(d, cx - px(10), cy, "■ BOSS", 7, BOSS_RED)
             # 手牌上限：买了「画家」/吃了「通灵板」之后，唯一能验证的地方
             text(d, cx + px(24), cy, "手8/8", 5.5, DIM)
@@ -511,7 +543,7 @@ def screen_playing(img):
             gx = cx + px(total) / 2 + px(4)
             if w / 2 - total / 2 > 12:
                 rrect(d, gx + px(9), cy, 20, 13, 3,
-                      fill=(16, 30, 34), outline=MULT, width=2)
+                      fill=(34, 28, 22), outline=MULT, width=2)
                 text(d, gx + px(9), cy, "+9", 6.5, MULT, bold=True)
             # 筹码粒子：从正在计分的牌迸发、带拖尾（原版 LAYER 4）
             import math
@@ -522,12 +554,12 @@ def screen_playing(img):
                 qy = cy - math.sin(a) * rr
                 d.ellipse([qx - px(1), qy - px(1), qx + px(1), qy + px(1)], fill=CHIP)
                 d.line([qx, qy, qx - math.cos(a) * px(3), qy + math.sin(a) * px(3)],
-                       fill=(0, 100, 180), width=1)
+                       fill=(58, 96, 118), width=1)
         elif name == "d":
             # 筹码 × 倍率：两个独立盒子，互不吃字
             bw1, bw2 = w * 0.55, w * 0.33
             rrect(d, cx - px(w) / 2 + px(bw1) / 2, cy, bw1, h, 3,
-                  fill=(0, 42, 62), outline=CHIP, width=2)
+                  fill=(20, 38, 46), outline=CHIP, width=2)
             text(d, cx - px(w) / 2 + px(bw1) / 2, cy, "1,420", 11, CHIP, bold=True)
             text(d, cx - px(w) / 2 + px(bw1) + px(4), cy, "×", 8, DIM)
             rrect(d, cx + px(w) / 2 - px(bw2) / 2, cy, bw2, h, 3,
@@ -556,9 +588,16 @@ def screen_playing(img):
                            edition="FOIL" if i == 6 else None,
                            selected=sel, angle=ang)
         elif name == "g2":
-            bw = (w - 6) / 2
-            draw_button(d, cx - px(bw) / 2 - px(3), cy, bw, 20, "弃 2", CHIP, filled=False)
-            draw_button(d, cx + px(bw) / 2 + px(3), cy, bw, 20, "出 3", MONEY)
+            # 22dp 排序键 + 两个 weight 按钮，间距各 4dp（与 Compose 一致）
+            sb = 22
+            x0 = cx - px(w) / 2
+            rrect(d, x0 + px(sb) / 2, cy, sb, 20, 3,
+                  fill=(60, 43, 26), outline=AMBER, width=1)
+            text(d, x0 + px(sb) / 2, cy, "点", 7, AMBER)
+            bw = (w - sb - 8) / 2
+            bx = x0 + px(sb) + px(4)
+            draw_button(d, bx + px(bw) / 2, cy, bw, 20, "弃 2", CHIP, filled=False)
+            draw_button(d, bx + px(bw) + px(4) + px(bw) / 2, cy, bw, 20, "出 3", MONEY)
 
 
 def screen_cash(img):
@@ -591,7 +630,7 @@ def screen_cash(img):
                 text(d, cx + px(bw) / 2, ly, v, 7, GOLD if strong else MONEY, anchor="rm")
                 if not strong:
                     d.line([cx - px(bw) / 2 + px(40), ly + px(1), cx + px(bw) / 2 - px(22), ly + px(1)],
-                           fill=(80, 100, 104), width=1)
+                           fill=(74, 64, 52), width=1)
         elif name == "btn":
             draw_button(d, cx, cy, w * 0.55, 24, "收下 $14", MONEY)
 
@@ -724,7 +763,7 @@ def screen_pack(img):
 def screen_detail(img):
     """详情页：已拥有小丑，卖出按钮处于「再点确认」状态。"""
     d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, W, W], fill=(18, 30, 34))
+    d.rectangle([0, 0, W, W], fill=INK900)
     rows, _ = layout_bands([
         ("icon", 42, 2), ("t", 12, 1), ("s", 8, 3),
         ("body", 44, 4), ("btn", 26, 2), ("hint", 8, 0),
@@ -784,8 +823,8 @@ def screen_end(img):
 def screen_levels(img):
     """信息面板 · 等级页。"""
     d = ImageDraw.Draw(img)
-    rows, _ = layout([
-        ("tabs", 122, 14), ("g", 0, 2), ("list", 122, 92), ("g", 0, 1), ("hint", 100, 8),
+    rows, _ = layout_bands([
+        ("tabs", 14, 2), ("list", 92, 1), ("hint", 8, 0),
     ])
     types = [("同花五条", "Lv1", "160×16"), ("同花葫芦", "Lv1", "140×14"),
              ("五条", "Lv1", "120×12"), ("同花顺", "Lv2", "140×12"),
@@ -844,7 +883,7 @@ def screen_collection(img):
                 on = i == 0
                 rrect(d, tx, cy, tw - px(1), 12, 3,
                       fill=MONEY if on else SURFACE,
-                      outline=MONEY if on else (60, 74, 78), width=1)
+                      outline=MONEY if on else (56, 48, 39), width=1)
                 text(d, tx, cy, t, 6, FELT_DARK if on else DIM, bold=on)
         elif name == "grid":
             y0 = cy - px(h) / 2
@@ -856,7 +895,7 @@ def screen_collection(img):
                 sel = i == 2
                 rrect(d, gx, gy, cw2 - 1.5, 30, 3,
                       fill=SURFACE_HI if sel else SURFACE,
-                      outline=MONEY if sel else ((60, 74, 78) if un else (40, 52, 56)),
+                      outline=MONEY if sel else ((56, 48, 39) if un else (38, 33, 27)),
                       width=2 if sel else 1)
                 if un:
                     draw_joker_badge(d, gx, gy - px(2.5), 15, col, 2)
@@ -894,10 +933,91 @@ def screen_settings(img):
                 text(d, cx - px(w) / 2 + px(5), ry, l, 7.5, CREAM, anchor="lm", bold=True)
                 vx = cx + px(w) / 2 - px(13)
                 text(d, vx - px(11), ry, hint, 5.2, DIM, anchor="rm")
-                rrect(d, vx, ry, 20, 12, 2, fill=(30, 42, 46), outline=col, width=1)
+                rrect(d, vx, ry, 20, 12, 2, fill=(44, 36, 28), outline=col, width=1)
                 text(d, vx, ry, val, 6.5, col)
         elif name == "back":
             draw_button(d, cx, cy, w * 0.4, 18, "返回", CHIP, filled=False)
+
+
+def screen_deck(img):
+    """牌堆查看：4 列小牌，待抽 / 弃牌两页，右侧排序按钮。"""
+    d = ImageDraw.Draw(img)
+    rows, _ = layout_bands([
+        ("head", 12, 2), ("tabs", 13, 2), ("grid", 84, 2), ("back", 20, 0),
+    ])
+    cards = [
+        ("A", "\u2660"), ("K", "\u2665"), ("7", "\u2666"), ("Q", "\u2663"),
+        ("3", "\u2660"), ("9", "\u2665"), ("J", "\u2666"), ("5", "\u2663"),
+        ("2", "\u2665"), ("10", "\u2660"), ("6", "\u2666"), ("K", "\u2663"),
+        ("8", "\u2665"), ("4", "\u2660"), ("Q", "\u2666"), ("A", "\u2663"),
+    ]
+    for name, w, cy, h in rows:
+        cx = W / 2
+        if name == "head":
+            text(d, cx - px(w) / 2, cy, "牌堆", 11, MONEY, anchor="lm", bold=True)
+            text(d, cx + px(w) / 2, cy, "32 待抽", 6, DIM, anchor="rm")
+        elif name == "tabs":
+            tw = (w - 46) / 2
+            for i, t in enumerate(["待抽", "弃牌"]):
+                tx = cx - px(w) / 2 + px(tw) * i + px(tw) / 2
+                on = i == 0
+                rrect(d, tx, cy, tw, 12, 3,
+                      fill=CHIP if on else SURFACE,
+                      outline=CHIP if on else (56, 48, 39), width=1)
+                text(d, tx, cy, t, 6.5, INK900 if on else DIM, bold=on)
+            rrect(d, cx + px(w) / 2 - px(20), cy, 40, 12, 3,
+                  fill=(60, 43, 26), outline=AMBER, width=1)
+            text(d, cx + px(w) / 2 - px(20), cy, "按点数", 5.6, AMBER)
+        elif name == "grid":
+            y0 = cy - px(h) / 2
+            cw2, ch2 = w / 4, 22
+            for i, (r, su) in enumerate(cards):
+                col_i, row_i = i % 4, i // 4
+                gx = cx - px(w) / 2 + px(cw2) * col_i + px(cw2) / 2
+                gy = y0 + px(ch2) * row_i + px(ch2) / 2
+                draw_cardface(d, gx, gy, cw2 - 1.5, 19, r, su)
+        elif name == "back":
+            draw_button(d, cx, cy, w * 0.34, 18, "返回", CHIP, filled=False)
+
+
+def screen_runinfo(img):
+    """牌型等级总览：12 种牌型排 6 行 2 列，出过的加亮。"""
+    d = ImageDraw.Draw(img)
+    rows, _ = layout_bands([
+        ("head", 12, 2), ("list", 84, 2), ("hint", 13, 2), ("back", 20, 0),
+    ])
+    # (名称, 等级, 筹码×倍率, 本局是否出过)
+    types = [
+        ("高牌", 1, "5×1", False), ("对子", 3, "40×4", True),
+        ("两对", 2, "40×4", True), ("三条", 1, "30×3", False),
+        ("顺子", 1, "30×4", False), ("同花", 2, "50×6", True),
+        ("葫芦", 1, "40×4", False), ("四条", 1, "60×7", False),
+        ("同花顺", 1, "100×8", False), ("五条", 1, "120×12", False),
+        ("同花葫芦", 1, "140×14", False), ("同花五条", 1, "160×16", False),
+    ]
+    for name, w, cy, h in rows:
+        cx = W / 2
+        if name == "head":
+            text(d, cx - px(w) / 2, cy, "牌型", 11, MONEY, anchor="lm", bold=True)
+            text(d, cx + px(w) / 2, cy, "+6 级", 6, GREEN, anchor="rm")
+        elif name == "list":
+            y0 = cy - px(h) / 2
+            cw2, ch2 = w / 2, h / 6
+            for i, (n, lv, val, used) in enumerate(types):
+                col_i, row_i = i % 2, i // 2
+                gx = cx - px(w) / 2 + px(cw2) * col_i + px(cw2) / 2
+                gy = y0 + px(ch2) * row_i + px(ch2) / 2
+                rrect(d, gx, gy, cw2 - 3.2, ch2 - 2, 2,
+                      fill=SURFACE_HI if used else (38, 33, 27),
+                      outline=AMBER if used else (48, 41, 34), width=1)
+                text(d, gx - px(cw2) / 2 + px(3), gy, f"{n} {lv}", 5.4,
+                     CREAM if used else DIM, anchor="lm")
+                text(d, gx + px(cw2) / 2 - px(3.4), gy, val, 4.8,
+                     CHIP if used else (100, 94, 82), anchor="rm")
+        elif name == "hint":
+            text(d, cx, cy, "行星牌升级对应牌型 · 亮色是本局出过的", 5.5, DIM)
+        elif name == "back":
+            draw_button(d, cx, cy, w * 0.34, 18, "返回", CHIP, filled=False)
 
 
 SCREENS = [
@@ -912,6 +1032,8 @@ SCREENS = [
     ("detail", "详情·卖出确认（弦长）", screen_detail),
     ("end", "结束页·弦长版式", screen_end),
     ("levels", "面板·等级", screen_levels),
+    ("deckview", "牌堆查看·待抽/弃牌/排序", screen_deck),
+    ("runinfo", "牌型等级·Run Info", screen_runinfo),
     ("collection", "图鉴·5 类分页", screen_collection),
     ("settings", "设置·五项即时生效", screen_settings),
 ]
@@ -922,7 +1044,7 @@ def render(fn, out):
     draw_felt(img)
     fn(img)
     mask = fill_circle_mask()
-    out_img = Image.new("RGB", (W, W), (10, 14, 16))
+    out_img = Image.new("RGB", (W, W), (12, 10, 8))
     out_img.paste(img, (0, 0), mask)
     out_img.save(out)
     return out_img
@@ -942,7 +1064,7 @@ def main():
     rows = (len(tiles) + cols - 1) // cols
     pad = 16
     tw = W + pad
-    canvas = Image.new("RGB", (tw * cols + pad, (W + 26 + pad) * rows + pad), (8, 12, 14))
+    canvas = Image.new("RGB", (tw * cols + pad, (W + 26 + pad) * rows + pad), (16, 13, 10))
     d = ImageDraw.Draw(canvas)
     f = font(13, True)
     for i, (label, im) in enumerate(tiles):

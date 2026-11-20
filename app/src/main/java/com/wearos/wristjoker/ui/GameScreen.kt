@@ -1,18 +1,21 @@
 package com.wearos.wristjoker.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -52,6 +55,7 @@ import com.wearos.wristjoker.game.GameUi
 import com.wearos.wristjoker.game.HandType
 import com.wearos.wristjoker.game.ScoreBreakdown
 import com.wearos.wristjoker.game.ScoreStep
+import com.wearos.wristjoker.game.SortMode
 import com.wearos.wristjoker.game.StepSource
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -106,6 +110,19 @@ private val PLAY_CY = CircleFit.centers(PLAY_BANDS)
 private fun shortBlind(k: BlindKind): String = k.short
 
 /**
+ * 底注用罗马数字：1–8 → I–VIII，超出（无尽模式）回退阿拉伯数字。
+ *
+ * 这是 1999 母题里最自然的一处结合 —— 它用罗马数字做钟表/档案编号，
+ * 而 Balatro 的底注恰好就是 1–8 的序数。不用 Unicode 罗马数字字符
+ * （部分设备缺字形会出豆腐块），直接用 ASCII，等宽字体下宽度也稳。
+ */
+private fun roman(n: Int): String = when (n) {
+    1 -> "I"; 2 -> "II"; 3 -> "III"; 4 -> "IV"
+    5 -> "V"; 6 -> "VI"; 7 -> "VII"; 8 -> "VIII"
+    else -> n.toString()
+}
+
+/**
  * 主牌桌。
  *
  * 分区仍是原版的六块（左上信息 / 顶部小丑 / 中央出牌 / 右上筹码倍率 /
@@ -127,6 +144,14 @@ fun GameScreen(
     onUseConsumable: (Int) -> Unit,
     onResolve: () -> Unit,
     onMove: (Int, Int) -> Unit = { _, _ -> },
+    /** 一键排序：切换「按点数 / 按花色」并立即重排。 */
+    onSort: () -> Unit = {},
+    /** 打开牌堆查看器。 */
+    onOpenDeck: () -> Unit = {},
+    /** 打开牌型等级总览。 */
+    onOpenInfo: () -> Unit = {},
+    /** 当前排序模式，只用于按钮上的文字。 */
+    sortMode: SortMode = SortMode.RANK,
     /** 结算节奏倍率：设置页的「慢 / 标准 / 快」映射成 0.7 / 1 / 1.5。 */
     speed: Float = 1f,
     modifier: Modifier = Modifier,
@@ -237,10 +262,18 @@ fun GameScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                T(
-                    "A${ui.ante}" + if (ui.endless) "∞" else "/8",
-                    Type.TinyMono.copy(color = Pal.Money, fontSize = 7.sp),
-                )
+                // 底注可点 → 牌型等级总览（原版的 Run Info）
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(2.dp))
+                        .clickable { onOpenInfo() }
+                        .padding(horizontal = 1.dp, vertical = 1.dp),
+                ) {
+                    T(
+                        "A${roman(ui.ante)}" + if (ui.endless) "∞" else "/8",
+                        Type.TinyMono.copy(color = Pal.Money, fontSize = 7.sp),
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (ui.isBoss) SuitDot(Pal.BossRed, Modifier.padding(end = 2.dp))
                     T(
@@ -253,7 +286,13 @@ fun GameScreen(
                 }
                 // 手牌上限必须看得见 —— 玩家买了「画家」、吃了「通灵板」之后
                 // 唯一能验证的方式就是这里的数字变了，以及扇形里的牌数变了。
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // 这一块同时是**牌堆查看器的入口**：点它就能看待抽的牌。
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(2.dp))
+                        .clickable { onOpenDeck() },
+                ) {
                     T(
                         "手${ui.hand.size}/${ui.handSize}",
                         Type.TinyMono.copy(
@@ -261,9 +300,16 @@ fun GameScreen(
                             fontSize = 6.sp,
                         ),
                     )
-                    Spacer(Modifier.width(3.dp))
-                    CountBadge("$${ui.money}", Pal.Money)
+                    // 可点提示：一条 0.5dp 的下划线，比加图标省宽度
+                    Box(
+                        Modifier
+                            .width(16.dp)
+                            .height(.5.dp)
+                            .background(Pal.Dim.copy(alpha = .45f)),
+                    )
                 }
+                Spacer(Modifier.width(3.dp))
+                CountBadge("$${ui.money}", Pal.Money)
             }
 
             Spacer(Modifier.height(PLAY_BANDS[0].gap.dp))
@@ -353,11 +399,34 @@ fun GameScreen(
 
             Spacer(Modifier.height(PLAY_BANDS[5].gap.dp))
 
-            /* ---- 带 6：弃牌 / 出牌（原版左弃右出）--------------------- */
+            /* ---- 带 6：弃牌 / 出牌（原版左弃右出）+ 排序 --------------- */
             Row(
-                Modifier.width(PLAY_W[6].dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.width(PLAY_W[6].dp).height(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                // 排序：单键切换「按点数 / 按花色」，按钮上只放一个字。
+                // 原版是两个按钮，手表上多一个就少一截按钮宽度 —— 而排序
+                // 只有两种意图，循环切换足够。
+                Box(
+                    Modifier
+                        .width(22.dp)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Pal.Amber500.copy(alpha = .16f))
+                        .border(
+                            1.dp,
+                            Pal.Amber500.copy(alpha = .58f),
+                            RoundedCornerShape(3.dp),
+                        )
+                        .clickable { onSort() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    T(
+                        if (sortMode == SortMode.RANK) "点" else "花",
+                        Type.TinyMono.copy(color = Pal.Amber400, fontSize = 7.sp),
+                    )
+                }
                 CasinoButton(
                     label = "弃 ${ui.discardsLeft}",
                     enabled = ui.canDiscard && !playing,
@@ -462,11 +531,12 @@ private fun PlayedArea(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                cards.forEach { c ->
+                cards.forEachIndexed { i, c ->
                     PlayedCard(
                         card = c,
                         active = c.id == activeId,
                         done = c.id in doneIds,
+                        index = i,
                     )
                 }
             }
@@ -503,6 +573,8 @@ private fun PlayedCard(
     card: Card,
     active: Boolean,
     done: Boolean,
+    /** 在出牌区里的序号，用于入场错峰。 */
+    index: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val bounce by animateFloatAsState(
@@ -515,15 +587,28 @@ private fun PlayedCard(
         animationSpec = tween(200),
         label = "dim",
     )
+    // 入场：从 +12dp、0.84 缩放、全透明开始，按 index 错峰 36ms。
+    //
+    // 这是"牌飞向出牌区"的廉价替代 —— 真位移需要手牌与出牌区的共享坐标，
+    // 在七条动态分带的版式里做起来很脆。但落位这一下有过程，
+    // 眼睛就不必在"手牌消失"和"出牌区出现"之间重新找焦点。
+    val enter = remember(card.id) { Animatable(0f) }
+    LaunchedEffect(card.id) {
+        enter.snapTo(0f)
+        delay((index * 36L).coerceAtMost(220L))
+        enter.animateTo(1f, tween(230, easing = FastOutSlowInEasing))
+    }
     Box(modifier.size(28.dp, 20.dp)) {
         Box(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    val s = 1f + .16f * bounce
+                    val e = enter.value
+                    val s = (1f + .16f * bounce) * (.84f + .16f * e)
                     scaleX = s
                     scaleY = s
-                    translationY = -3.dp.toPx() * bounce
+                    translationY = -3.dp.toPx() * bounce + (1f - e) * 12.dp.toPx()
+                    alpha = e
                     // 原版每张打出的牌带 ±3° 随机倾斜，避免"阅兵式"的死板排布；
                     // 用 id 做稳定伪随机，同一张牌每帧角度不变。
                     rotationZ = (((card.id * 31) % 7) - 3).toFloat()

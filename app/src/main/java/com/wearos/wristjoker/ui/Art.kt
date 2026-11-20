@@ -261,21 +261,41 @@ fun CardFaceArt(card: Card, modifier: Modifier = Modifier) {
         }
         drawRect(faceColor)
 
-        // 纸纹：等距四道极淡横线，模拟印刷纸的纤维方向
-        var ty = h * .18f
+        // 纸纹：四道极淡横线 + 边缘老化。
+        //
+        // 试过网点（halftone），但在 25dp 高的牌面上点阵会糊成一层灰，
+        // 反而像脏了。这个尺寸下唯一读得出来的"纸"是**不均匀**：
+        // 中间干净、四角发暗，所以改用径向暗角，横线只留极淡的几道。
+        var ty = h * .20f
         while (ty < h) {
-            drawLine(Pal.CardInner.copy(alpha = .28f), Offset(0f, ty), Offset(w, ty), .5f)
-            ty += h * .26f
+            drawLine(Pal.CardInner.copy(alpha = .16f), Offset(0f, ty), Offset(w, ty), .5f)
+            ty += h * .30f
         }
+        drawRect(
+            Brush.radialGradient(
+                listOf(Color.Transparent, Color.Transparent, Color(0xFF7A6A50).copy(alpha = .16f)),
+                center = Offset(w * .5f, h * .42f),
+                radius = w * .78f,
+            )
+        )
 
-        // 内框
+        // 内框：双细线压印（1999 的装订边），外线略深、内线极淡
         val inset = (w * .055f).coerceAtLeast(1f)
         drawRect(
-            if (card.enh == Enhancement.STEEL) Pal.FeltHi else Pal.CardInner.copy(alpha = .75f),
+            if (card.enh == Enhancement.STEEL) Pal.FeltHi else Pal.CardInner.copy(alpha = .85f),
             Offset(inset, inset),
             Size(w - inset * 2, h - inset * 2),
             style = Stroke((w * .022f).coerceAtLeast(.7f)),
         )
+        val inset2 = inset + (w * .042f).coerceAtLeast(.7f)
+        if (w - inset2 * 2 > 1f) {
+            drawRect(
+                Pal.CardInner.copy(alpha = .38f),
+                Offset(inset2, inset2),
+                Size(w - inset2 * 2, h - inset2 * 2),
+                style = Stroke((w * .010f).coerceAtLeast(.3f)),
+            )
+        }
 
         // ---- 顶部双层通栏色带：上层 = 版本，下层 = 增强 ----
         //
@@ -395,8 +415,13 @@ fun CardFaceArt(card: Card, modifier: Modifier = Modifier) {
 
 
 /**
- * Bicycle 风格几何牌背：暖红底 + 双层斜网 + 中心菱形徽记 + 描边。
- * 上半部分被手牌槽位裁掉也不影响识别 —— 菱形徽记压在正中偏上。
+ * 牌背：1999 的**深咖 + 烫金细线 + 四角星**，不是 Bicycle 斜网。
+ *
+ * 牌背在牌桌上是"背面朝上"的常驻元素，占的视觉面积比任何一张牌都大 ——
+ * 它决定整块牌桌的年代感。这里用装订边（双线）+ 徽记（四角星）+ 雨滴斜纹
+ * 三件套替换原来的红底斜网。
+ *
+ * 上半部分会被手牌槽位裁掉，所以徽记压在正中偏上。
  */
 @Composable
 fun CardBackArt(modifier: Modifier = Modifier, base: Color = Pal.CardBack) {
@@ -405,33 +430,52 @@ fun CardBackArt(modifier: Modifier = Modifier, base: Color = Pal.CardBack) {
         val h = size.height
         drawRect(base)
 
-        val step = (w / 7.5f).coerceAtLeast(.9f)
-        val lw = (w / 120f).coerceAtLeast(.42f)
+        // 雨滴斜纹：疏、细、低透明度 —— 密了会变成灰糊
+        val step = (w / 6.0f).coerceAtLeast(1.4f)
         var k = -h
         while (k < w + h) {
-            drawLine(Pal.CardFace.copy(alpha = .13f), Offset(k, 0f), Offset(k + h, h), lw)
-            drawLine(Pal.CardFace.copy(alpha = .13f), Offset(k, h), Offset(k + h, 0f), lw)
+            drawLine(
+                Pal.Rain.copy(alpha = .15f),
+                Offset(k, 0f), Offset(k - h * .32f, h), .45f,
+            )
             k += step
         }
 
-        val cx = w / 2f
-        val cy = h / 2f
-        val r = w * .21f
-        val d = Path().apply {
-            moveTo(cx, cy - r); lineTo(cx + r, cy)
-            lineTo(cx, cy + r); lineTo(cx - r, cy); close()
-        }
-        drawPath(d, Pal.CardFace.copy(alpha = .95f))
-        drawCircle(base, r * .42f, Offset(cx, cy))
-        drawCircle(Pal.Gold, r * .20f, Offset(cx, cy))
-
-        val inset = w * .07f
+        // 烫金双线框（外粗内细，模拟压印）
+        val inset = w * .075f
         drawRect(
-            Pal.CardFace.copy(alpha = .80f),
+            Pal.Amber400.copy(alpha = .58f),
             Offset(inset, inset),
             Size(w - inset * 2, h - inset * 2),
-            style = Stroke((w * .028f).coerceAtLeast(.7f)),
+            style = Stroke((w * .018f).coerceAtLeast(.5f)),
         )
+        val inset2 = inset * 1.62f
+        drawRect(
+            Pal.Amber400.copy(alpha = .22f),
+            Offset(inset2, inset2),
+            Size(w - inset2 * 2, h - inset2 * 2),
+            style = Stroke((w * .011f).coerceAtLeast(.32f)),
+        )
+
+        // 中心四角星：八点折线（四尖 + 四凹），比曲线更利落，也更像印刷符号
+        val cx = w / 2f
+        val cy = h * .46f
+        val r = (w * .23f).coerceAtLeast(2.4f)
+        val inner = r * .26f
+        val star = Path().apply {
+            moveTo(cx, cy - r)
+            lineTo(cx + inner, cy - inner)
+            lineTo(cx + r, cy)
+            lineTo(cx + inner, cy + inner)
+            lineTo(cx, cy + r)
+            lineTo(cx - inner, cy + inner)
+            lineTo(cx - r, cy)
+            lineTo(cx - inner, cy - inner)
+            close()
+        }
+        drawPath(star, Pal.Amber400.copy(alpha = .88f))
+        drawCircle(base, r * .21f, Offset(cx, cy))
+        drawCircle(Pal.Paper100.copy(alpha = .92f), r * .075f, Offset(cx, cy))
     }
 }
 
@@ -581,7 +625,16 @@ fun JokerPortrait(id: String, modifier: Modifier = Modifier) {
  * 5. 赌桌毡 + CRT 扫描线 + 光标
  * ------------------------------------------------------------------ */
 
-/** 深墨绿毡、缓慢旋转的多边形漩涡、细噪点、暗角。全部确定性绘制，重组不闪。 */
+/**
+ * 背景：1999 的**深咖低长调**，不是赌桌毡。
+ *
+ * 结构照 `DESIGN_LANGUAGE.md` §3.3 的「低长调」——整体压暗，只留一处极亮高光；
+ * 材质照 §3.4 的「油墨 + 纸张」——纤维短划、极细雨滴斜线、外圈压印双线。
+ *
+ * 上一版是墨绿毡 + 三个缓慢旋转的六边形，属于"赌场"语义；现在换成
+ * "档案 / 老照片"语义：底色是纸背，雨是世界观母题，双线是装订边。
+ * 全部确定性绘制（用质数取模代替随机），重组不会闪。
+ */
 @Composable
 fun FeltBackground(modifier: Modifier = Modifier) {
     Canvas(modifier.fillMaxSize()) {
@@ -589,35 +642,58 @@ fun FeltBackground(modifier: Modifier = Modifier) {
         val h = size.height
         val cx = w / 2f
         val cy = h / 2f
-        drawRect(Brush.verticalGradient(listOf(Pal.FeltDark, Pal.Felt, Pal.FeltDark)))
 
-        repeat(3) { i ->
-            val p = Path()
-            val sides = 6
-            val r = w * (0.40f + i * 0.22f)
-            val rot = i * 0.38f
-            for (s in 0 until sides) {
-                val ang = (2.0 * PI * s / sides + rot).toFloat()
-                val x = cx + r * cos(ang)
-                val y = cy + r * sin(ang)
-                if (s == 0) p.moveTo(x, y) else p.lineTo(x, y)
-            }
-            p.close()
-            val a = listOf(0.055f, 0.085f, 0.045f)[i]
-            drawPath(p, if (i == 1) Pal.WineRed.copy(alpha = a) else Pal.FeltHi.copy(alpha = a))
-        }
-
-        for (i in 0 until 150) {
-            val x = ((i * 7919) % 101) / 101f * w
-            val y = ((i * 104729) % 103) / 103f * h
-            drawCircle(Pal.CardFace.copy(alpha = .035f), 0.7f, Offset(x, y))
-        }
-
+        // 低长调底：中心偏上一点最亮（像一盏顶灯打在纸上），边缘落黑
         drawRect(
             Brush.radialGradient(
-                listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = .58f)),
+                listOf(Pal.Ink800, Pal.Ink900, Color(0xFF110E0B)),
+                center = Offset(cx, cy * .86f),
+                radius = w * .80f,
+            )
+        )
+
+        // 暴雨母题：极细斜线，只落在画布外围（8:2 里的那 2 成）
+        var i = 0
+        while (i < 30) {
+            val t = ((i * 7919) % 101) / 101f
+            val ph = ((i * 104729) % 97) / 97f
+            val x0 = -w * .12f + t * w * 1.24f
+            val y0 = ph * h
+            val len = h * (.09f + (i % 4) * .035f)
+            drawLine(
+                Pal.Rain.copy(alpha = .055f),
+                Offset(x0, y0),
+                Offset(x0 - len * .32f, y0 + len),
+                .55f,
+            )
+            i++
+        }
+
+        // 纸张纤维：短横划，比圆点更像纸（圆点在小屏上会读成脏污）
+        for (k in 0 until 210) {
+            val x = ((k * 7919) % 211) / 211f * w
+            val y = ((k * 104729) % 223) / 223f * h
+            val l = 1.1f + ((k * 31) % 5) * .7f
+            drawLine(Pal.Paper100.copy(alpha = .020f), Offset(x, y), Offset(x + l, y), .6f)
+        }
+
+        // 装订边：两圈极淡的压印线，贴着圆屏边缘
+        val rOuter = w * .5f - 1.5.dp.toPx()
+        drawCircle(
+            Pal.Amber400.copy(alpha = .10f), rOuter, Offset(cx, cy),
+            style = Stroke(.8f),
+        )
+        drawCircle(
+            Pal.Amber400.copy(alpha = .055f), rOuter - 3.dp.toPx(), Offset(cx, cy),
+            style = Stroke(.6f),
+        )
+
+        // 暗角
+        drawRect(
+            Brush.radialGradient(
+                listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = .55f)),
                 center = Offset(cx, cy),
-                radius = w * .74f,
+                radius = w * .73f,
             )
         )
     }
@@ -656,22 +732,67 @@ fun CrtOverlay(modifier: Modifier = Modifier, level: Int = 2) {
     }
 }
 
-/** 表冠光标的四角 L 标记，比整圈描边更接近原作的选中框。 */
+/**
+ * 表冠光标：**四角星**，替代上一版的四角 L 线。
+ *
+ * 四角星是 1999 的点击态核心元素（`DESIGN_LANGUAGE.md` §3.6「四角星（点击态核心元素）」、
+ * §3.7「点击态由中心向外圆形扩散，中心是闪光四角星」）。用四个尖角标记选中，
+ * 方向感比线段强，在 4dp 尺度上也不糊。
+ */
 @Composable
 fun CursorCorners(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val w = size.width
         val h = size.height
-        val len = w * .20f
-        val sw = 1.2.dp.toPx()
-        drawLine(color, Offset(0f, 0f), Offset(len, 0f), sw)
-        drawLine(color, Offset(0f, 0f), Offset(0f, len), sw)
-        drawLine(color, Offset(w, 0f), Offset(w - len, 0f), sw)
-        drawLine(color, Offset(w, 0f), Offset(w, len), sw)
-        drawLine(color, Offset(0f, h), Offset(len, h), sw)
-        drawLine(color, Offset(0f, h), Offset(0f, h - len), sw)
-        drawLine(color, Offset(w, h), Offset(w - len, h), sw)
-        drawLine(color, Offset(w, h), Offset(w, h - len), sw)
+        val r = (minOf(w, h) * .14f).coerceIn(1.3f, 4.0.dp.toPx())
+        val inner = r * .26f
+        val pad = r * .92f
+        fun star(cx: Float, cy: Float) {
+            val p = Path().apply {
+                moveTo(cx, cy - r)
+                lineTo(cx + inner, cy - inner)
+                lineTo(cx + r, cy)
+                lineTo(cx + inner, cy + inner)
+                lineTo(cx, cy + r)
+                lineTo(cx - inner, cy + inner)
+                lineTo(cx - r, cy)
+                lineTo(cx - inner, cy - inner)
+                close()
+            }
+            drawPath(p, color)
+        }
+        star(pad, pad)
+        star(w - pad, pad)
+        star(pad, h - pad)
+        star(w - pad, h - pad)
+    }
+}
+
+/**
+ * 独立的四角星，供菜单分隔、结算标记、空槽位复用。
+ *
+ * 和 [CursorCorners] 的区别：这个画在容器正中，尺寸由容器决定；
+ * 里面没有内圆，是纯实心星（1999 的星星很少画装饰内圈）。
+ */
+@Composable
+fun FourPointStar(color: Color, modifier: Modifier = Modifier, shape: Float = 1f) {
+    Canvas(modifier) {
+        val r = minOf(size.width, size.height) * .5f * shape.coerceIn(0f, 1f)
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val inner = r * .24f
+        val p = Path().apply {
+            moveTo(cx, cy - r)
+            lineTo(cx + inner, cy - inner)
+            lineTo(cx + r, cy)
+            lineTo(cx + inner, cy + inner)
+            lineTo(cx, cy + r)
+            lineTo(cx - inner, cy + inner)
+            lineTo(cx - r, cy)
+            lineTo(cx - inner, cy - inner)
+            close()
+        }
+        drawPath(p, color)
     }
 }
 

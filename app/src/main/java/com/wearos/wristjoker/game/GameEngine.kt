@@ -185,6 +185,16 @@ data class GameUi(
      * 必须单独留一份给 UI 画。
      */
     val playedCards: List<Card> = emptyList(),
+    /**
+     * 抽牌堆（还没摸到的牌），按实际抽取顺序排列。
+     *
+     * 暴露给 UI 是为了「牌堆查看器」——原版点牌堆能看剩余所有牌，
+     * 这是判断"还剩几张红桃"的唯一手段。之前只有 [deckLeft] 这个数量，
+     * 中后期的同花/顺子听牌判断只能靠记忆。
+     */
+    val drawPileCards: List<Card> = emptyList(),
+    /** 弃牌堆（已弃 / 已打出且未碎裂的牌）。 */
+    val discardCards: List<Card> = emptyList(),
 ) {
     val progress: Float
         get() = if (target <= 0) 1f else (score.toFloat() / target).coerceIn(0f, 1f)
@@ -266,6 +276,20 @@ data class RunState(
  * 所有牌都只以 id 存在三个堆里，卡牌实体统一放 [master]；
  * 塔罗改造只改 [master]，三个堆自动跟着变 —— 避免"手牌改了、弃牌堆没改"这类不一致。
  */
+/**
+ * 手牌排序方式。
+ *
+ * 原版牌桌右下有两个按钮（按点数 / 按花色），这里做成单键循环切换 ——
+ * 1.4 英寸屏上多一个按钮就少一行可用宽度，而排序只有两种意图。
+ */
+enum class SortMode(val cn: String) {
+    RANK("点数"),
+    SUIT("花色"),
+    ;
+
+    fun next(): SortMode = if (this == RANK) SUIT else RANK
+}
+
 class GameEngine(seed: Long = System.currentTimeMillis()) {
 
     // ---------------------------------------------------------------- 基础
@@ -695,6 +719,35 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         if (from !in hand.indices || to !in hand.indices || from == to) return
         val id = hand.removeAt(from)
         hand.add(to.coerceIn(0, hand.size), id)
+    }
+
+    /**
+     * 一键排序。
+     *
+     * 原版牌桌右下有两个排序按钮（按点数 / 按花色）。上一版只有单张拖拽，
+     * 等于每手开局都要手动理 8 张牌 —— 手表上拖牌是体力活，而"理牌"
+     * 从来不是这个游戏的乐趣。
+     *
+     * 注意：排序**不影响选中集合**（选中按牌 id 记，不按下标），
+     * 也不会改变任何牌的 id 或点数——所以计分结果完全不变。
+     */
+    fun sortHand(mode: SortMode) {
+        if (phase != Phase.PLAYING) return
+        val sorted = hand.sortedWith(
+            when (mode) {
+                SortMode.RANK -> compareBy(
+                    { master[it]?.rank?.order ?: 0 },
+                    { master[it]?.suit?.ordinal ?: 0 },
+                )
+                SortMode.SUIT -> compareBy(
+                    { master[it]?.suit?.ordinal ?: 0 },
+                    { master[it]?.rank?.order ?: 0 },
+                )
+            }
+        )
+        hand.clear()
+        hand.addAll(sorted)
+        message = "按${mode.cn}排序"
     }
 
     /**
@@ -1735,6 +1788,8 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         challenge = challenge,
         blockedIds = if (phase == Phase.PLAYING) effectiveBlocked() else emptySet(),
         playedCards = lastPlayed,
+        drawPileCards = drawPile.mapNotNull { master[it] },
+        discardCards = discardPile.mapNotNull { master[it] },
     )
 
     /** 导出可持久化状态。 */
