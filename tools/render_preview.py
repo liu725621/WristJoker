@@ -824,7 +824,7 @@ def screen_levels(img):
     """信息面板 · 等级页。"""
     d = ImageDraw.Draw(img)
     rows, _ = layout_bands([
-        ("tabs", 14, 2), ("list", 92, 1), ("hint", 8, 0),
+        ("tabs", 14, 3), ("list", 110, 3), ("hint", 8, 0),
     ])
     types = [("同花五条", "Lv1", "160×16"), ("同花葫芦", "Lv1", "140×14"),
              ("五条", "Lv1", "120×12"), ("同花顺", "Lv2", "140×12"),
