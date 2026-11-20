@@ -913,7 +913,7 @@ SCREENS = [
     ("end", "结束页·弦长版式", screen_end),
     ("levels", "面板·等级", screen_levels),
     ("collection", "图鉴·5 类分页", screen_collection),
-    ("settings", "设置·四项即时生效", screen_settings),
+    ("settings", "设置·五项即时生效", screen_settings),
 ]
 
 
