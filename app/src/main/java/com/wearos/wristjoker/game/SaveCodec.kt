@@ -89,6 +89,8 @@ object SaveCodec {
         append("packp|").append(s.packPicked.joinToString(",")).append('\n')
         append("packr|").append(s.packReturn.name).append('\n')
         append("msg|").append(s.message.replace('\n', ' ')).append('\n')
+        // v2 内追加（不升版本号）：旧档没这行，解码时补 0，卡片回退到"只显示分数"。
+        append("tgt|").append(s.target).append('\n')
     }
 
     /**
@@ -256,6 +258,7 @@ object SaveCodec {
             packPicked = map["packp"].orEmpty().split(',')
                 .mapNotNull { it.trim().toIntOrNull() },
             packReturn = enumOr(map["packr"], Phase.SHOP),
+            target = map["tgt"]?.toLongOrNull() ?: 0,
         )
     }
 

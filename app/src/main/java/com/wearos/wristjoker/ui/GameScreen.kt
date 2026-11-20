@@ -57,6 +57,7 @@ import com.wearos.wristjoker.game.ScoreBreakdown
 import com.wearos.wristjoker.game.ScoreStep
 import com.wearos.wristjoker.game.SortMode
 import com.wearos.wristjoker.game.StepSource
+import com.wearos.wristjoker.game.roman
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.abs
@@ -109,18 +110,8 @@ private val PLAY_CY = CircleFit.centers(PLAY_BANDS)
 /** 盲注简称。 */
 private fun shortBlind(k: BlindKind): String = k.short
 
-/**
- * 底注用罗马数字：1–8 → I–VIII，超出（无尽模式）回退阿拉伯数字。
- *
- * 这是 1999 母题里最自然的一处结合 —— 它用罗马数字做钟表/档案编号，
- * 而 Balatro 的底注恰好就是 1–8 的序数。不用 Unicode 罗马数字字符
- * （部分设备缺字形会出豆腐块），直接用 ASCII，等宽字体下宽度也稳。
- */
-private fun roman(n: Int): String = when (n) {
-    1 -> "I"; 2 -> "II"; 3 -> "III"; 4 -> "IV"
-    5 -> "V"; 6 -> "VI"; 7 -> "VII"; 8 -> "VIII"
-    else -> n.toString()
-}
+// 底注罗马数字的实现搬到 game/Roman.kt —— 卡片（Tile）也要用同一份，
+// 两处各写一份迟早会有一边忘了改（尤其无尽模式回退阿拉伯数字那条）。
 
 /**
  * 主牌桌。

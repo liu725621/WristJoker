@@ -48,6 +48,16 @@ class SaveStore(context: Context) {
         return SaveCodec.decode(text) != null
     }
 
+    /**
+     * 只读一次存档，不建引擎。
+     *
+     * 给手表卡片（Tile）用：TileService 是被系统按需绑定的短命服务，
+     * 为了显示四行字去建一个完整 [GameEngine]、把 52 张牌和商店都还原一遍
+     * 纯属浪费 —— 卡片只读 [SaveCodec.decode] 出来的状态对象。
+     */
+    fun load(): com.wearos.wristjoker.game.RunState? =
+        prefs.getString(KEY_RUN, null)?.let { SaveCodec.decode(it) }
+
     /** 主动清空（开新局、通关结算后）。 */
     fun wipe() {
         prefs.edit().remove(KEY_RUN).apply()

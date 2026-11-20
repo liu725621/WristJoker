@@ -15,8 +15,8 @@ android {
         // targetSdk 对齐真机 34，避免在 Wear OS 5 上走未验证的新行为。
         minSdk = 30
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2-watch"
+        versionCode = 4
+        versionName = "1.3-watch"
     }
 
     buildTypes {
@@ -57,6 +57,13 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.wear.compose:compose-material3:1.5.0")
     implementation("androidx.wear.compose:compose-foundation:1.5.0")
+
+    // 手表「卡片」（三星叫卡片，Wear OS 叫 Tile）。不引 tiles-material：
+    // 卡片只有一块 192×192 的圆屏，手写 protolayout 反而比套组件更好控比例。
+    implementation("androidx.wear.tiles:tiles:1.5.0")
+    // TileService 的回调要返回 ListenableFuture。tiles 只把 concurrent-futures
+    // 当运行时依赖带进来，编译期拿不到 ResolvableFuture，所以显式声明一次。
+    implementation("androidx.concurrent:concurrent-futures:1.1.0")
 
     // 游戏核心逻辑是纯 Kotlin，单元测试只依赖 JUnit。
     testImplementation("junit:junit:4.13.2")

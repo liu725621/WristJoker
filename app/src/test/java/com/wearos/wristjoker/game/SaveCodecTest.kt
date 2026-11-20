@@ -65,6 +65,7 @@ class SaveCodecTest {
             lastGain = 12,
             endless = false,
             message = "凑够 5000 分",
+            target = 5000,
         )
     }
 
@@ -102,6 +103,8 @@ class SaveCodecTest {
         assertEquals(s.blindsCleared, back.blindsCleared)
         assertEquals(s.endless, back.endless)
         assertEquals(s.message, back.message)
+        // 卡片（Tile）靠这一行显示进度：旧档缺它时解码为 0，卡片会退化成只显示分数
+        assertEquals(s.target, back.target)
     }
 
     @Test

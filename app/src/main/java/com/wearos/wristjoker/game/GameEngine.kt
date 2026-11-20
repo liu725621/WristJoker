@@ -265,6 +265,16 @@ data class RunState(
     val stake: Stake = Stake.WHITE,
     /** 挑战 id；普通一局为空串。 */
     val challenge: String = "",
+    /**
+     * 当前盲注的目标分。
+     *
+     * 引擎里本来只有 `spec.target` 这个运行时字段，存档不带它 —— 因为恢复时
+     * `specOf()` 能重算。但**手表卡片（Tile）在另一个进程里只拿到存档**，
+     * 没有引擎实例；让它自己按底注/赌注/挑战重算一遍，等于把"目标分怎么算"
+     * 复制到第二处，绿注/紫注/挑战倍率一改就会两边对不上。
+     * 所以直接把结果存进来，卡片只负责显示。旧档缺这一行时回退为 0。
+     */
+    val target: Long = 0,
 )
 
 /**
@@ -1840,6 +1850,7 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         handSizePenalty = handSizePenalty,
         stake = stake,
         challenge = challenge?.id ?: "",
+        target = spec.target,
     )
 
     /** 从存档恢复。任一字段缺失都由 [SaveCodec] 兜底成安全默认值。 */

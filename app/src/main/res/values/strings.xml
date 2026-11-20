@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">腕上小丑</string>
+    <!-- 卡片在手表「添加卡片」列表里的名字与说明 -->
+    <string name="tile_name">小丑牌局</string>
+    <string name="tile_desc">当前底注与分数进展，轻触回到牌桌</string>
 </resources>

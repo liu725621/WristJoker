@@ -1154,3 +1154,73 @@ OVERALL = True
 - **表冠只覆盖手牌**：商店 / 图鉴 / 设置都不响应旋转。
 - **成就、每日挑战、种子输入、统计页**：这四项是"长线留存"层，一个都没做。
 - **真机手感**：所有判断仍止于代码与渲染图，没在表上跑过。
+
+---
+
+## 23. 第九轮：手表卡片（Tile）
+
+需求是"加一个三星的卡片" —— 指的是一局进行中，从表盘右滑能看到的那个卡片
+（Wear OS 叫 Tile，三星 One UI Watch 在「添加卡片」里管理）。原版没有这个东西，
+但**在一局十几分钟的游戏里，"还差多少分"是最常被问的问题**，而打开 App
+要冷启动 + 读存档 + 进牌桌，三秒起步。
+
+### 23.1 做了什么
+
+| 文件 | 内容 |
+|---|---|
+| `tile/TileSnapshot.kt` | 存档 → 五行文案（kicker / 主数字 / 说明 / 进度 / 底行）的纯函数映射 |
+| `tile/JokerTileService.kt` | protolayout 手写布局 + `TileRefresh` 节流刷新 |
+| `game/Roman.kt` | 罗马数字从 `GameScreen` 私有函数提到公共层，牌桌与卡片共用 |
+| `SaveStore.load()` | 只解存档、不建引擎（TileService 是短命服务） |
+| `res/drawable-nodpi/tile_preview.png` | 系统「添加卡片」列表里的缩略图 |
+| `tools/render_tile_preview.py` | 缩略图与文档图的渲染脚本 |
+
+布局是手写的 protolayout（`Box` / `Column` / `Text` / `Spacer`），没有引
+`tiles-material`：卡片只有 192dp 见方一块，套组件反而不好控比例。
+
+### 23.2 三条设计约束
+
+1. **不建引擎**。`GameEngine` 的 `restore()` 要还原 52 张牌、商店三段、Boss 序列；
+   卡片只显示四行字，直接 `SaveCodec.decode()` 拿 `RunState` 就够。
+2. **不做交互**。整块可点回牌桌。Wear OS 会把点击区放大到 48dp 以上，
+   卡片上放两个小按钮必然互相误触；出牌本来就需要手牌 + 四个按钮的完整手势。
+3. **只用语义色**。进度条走筹码蓝 `#5E9BB0`，Boss 标题走砖红 `#A8473A`，
+   其余纸白 / 暖灰。卡片是"瞟一眼"的场景，颜色越多越读不出重点。
+
+### 23.3 五个坑
+
+1. **tiles 只把 `concurrent-futures` 当运行时依赖**。`TileService.onTileRequest`
+   要返回 `ListenableFuture`，但 `androidx.concurrent:concurrent-futures` 不在
+   编译类路径上，`import androidx.concurrent.futures.ResolvableFuture` 直接
+   `Unresolved reference 'concurrent'`。显式声明一次依赖即可。
+2. **目标分不在存档里**。引擎只有 `spec.target` 这个运行时字段，恢复时靠
+   `specOf()` 重算。卡片在另一个进程里只拿到存档，如果自己按底注重算，
+   绿注 `×2`、紫注、挑战的 `targetScale` 三处倍率任何一个改动都会让两边对不上。
+   所以给 `RunState` 加了一行 `tgt|`（v2 内追加，不升版本号，旧档缺省为 0）。
+3. **25sp 一行只放得下约 8 个字符**。`1,240,000` 会顶到圆边，所以 10 万以上
+   改成 `248K` / `1.2M`；10 万以下保持千分位精确值 —— 玩家对 `12,480`
+   是有感觉的，对 `12.5K` 没有。
+4. **字号不等于字高**。第一版预览里 `12,480` 和 `/ 1,800` 叠在一起：
+   25sp 的字实际墨迹高度比字号大，`gap(2dp)` 根本不够。改成 4dp 并把
+   sub 整体下移才分开。
+5. **一次出牌会触发 4–5 次 `refresh()`**（选中 → 出牌 → 结算 → 补牌 → 落盘）。
+   每次都 `TileService.getUpdater().requestUpdate()` 是跨进程 bind，
+   费电且没必要；节流 2 秒，离场（`onStop`）强制刷一次。
+
+### 23.4 验证结果
+
+| 项 | 结果 |
+|---|---|
+| 单元测试 | **161 个全通过**（+8：卡片文案 8 例，含 Boss 标记、商店主数字、结束态、除零） |
+| 清单合并 | `aapt2 dump xmltree` 确认 `.tile.JokerTileService` 已带 `BIND_TILE_PROVIDER` 权限、`exported=true`、PREVIEW 元数据 |
+| 资源 | `drawable/tile_preview` 已编入 `resources.arsc`（`res/OL.png`，9,709 B） |
+| 产物 | `23,305,903 bytes`，SHA256 `08c8836bda311cf07f2b206810a63d02f4893c47b6f547b4842d2fc06213d038` |
+
+### 23.5 仍然没做
+
+- **真机卡片列表**：没有 Wear 模拟器镜像，protolayout 的实际渲染只能在
+  Galaxy Watch 上确认。清单、资源、文案映射都验过，唯独"加上去长什么样"没验。
+- **多尺寸变体**：Wear OS 4 起卡片可以长按切成中/大尺寸，当前布局用
+  `expand()` 自适应，但没有针对宽高比做第二套排版。
+- **卡片上的快捷操作**：比如"直接弃牌"。技术上要开 `TileService` 的
+  交互事件通道，且和"不做交互"的取舍冲突，暂不做。
