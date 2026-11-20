@@ -1,5 +1,7 @@
 package com.wearos.wristjoker.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +41,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.delay
 import com.wearos.wristjoker.game.Card
 
 /**
@@ -219,6 +223,16 @@ fun HandFan(
             val ang = (off * 1.7f).coerceIn(-13f, 13f)
             // 弧：两端下沉，最多 4dp
             val dip = off * off * (1.4f / (mid + .8f)).coerceAtMost(4f)
+            // 发牌：上一版手牌是"瞬间出现"，出牌后补牌也没有过程 —— 这是整局里
+            // 最缺"手感"的一处。新牌从下方 20dp 带 9° 倾角落下，按位置错峰 42ms，
+            // 五张牌就是 0.17 秒的"唰唰唰"，和音效对得上。
+            val appear = remember(card.id) { Animatable(0f) }
+            LaunchedEffect(card.id) {
+                if (appear.value < 1f) {
+                    delay((i * 42L).coerceAtMost(320L))
+                    appear.animateTo(1f, tween(240, easing = FastOutSlowInEasing))
+                }
+            }
             Box(
                 Modifier
                     .zIndex(if (sel) 60f else i.toFloat())
@@ -257,7 +271,14 @@ fun HandFan(
                     modifier = Modifier
                         .width(cardWidth.dp)
                         .height(cardHeight.dp)
-                        .graphicsLayer { rotationZ = ang },
+                        .graphicsLayer {
+                            val v = appear.value
+                            rotationZ = ang + (1f - v) * 9f
+                            alpha = v
+                            translationY = (1f - v) * 20.dp.toPx()
+                            scaleX = .94f + .06f * v
+                            scaleY = .94f + .06f * v
+                        },
                 )
             }
         }

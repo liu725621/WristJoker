@@ -24,7 +24,8 @@
 | 构筑 | 150 张小丑、52 张消耗品（22 塔罗 + 12 行星 + 18 幻灵）、32 张代金券、24 种标签 |
 | 商店 | 四段结构：小丑 / 补充包 / 代金券 / 重掷；商品可长按看详情，出售有二次确认 |
 | 难度 | 8 档赌注逐档叠加并逐档解锁；20 个固定种子挑战 |
-| 周边 | 图鉴（5 类分页）、设置（音效 / 震动 / 扫描线 / 结算速度）、自动存档续局 |
+| 周边 | 图鉴（5 类分页）、设置（音乐 / 音效 / 震动 / 扫描线 / 结算速度）、自动存档续局 |
+| 声音 | 代码合成的 8 小节爵士循环（贝斯 / 电钢 / 鼓刷 / 黑胶底噪），随场景改速度；14 种合成音效 |
 
 ## 圆屏不是切一刀
 
@@ -48,6 +49,18 @@ w = 2√(r² − dy²)      r = 108 − 9 = 99dp（留 9dp 呼吸位）
 | --- | --- | --- |
 | ![](preview/screen-playing.png) | ![](preview/screen-collection.png) | ![](preview/screen-settings.png) |
 
+## 声音不是配乐，是节奏
+
+原作的氛围有一半来自那支循环的爵士小乐队。这里没有打包任何音频：
+`fx/Music.kt` 用代码合成 8 小节（92 BPM，摇摆八分）的循环 —— 走路贝斯、反拍电钢、
+鼓刷、黑胶底噪，写成 22kHz 单声道 WAV 放在 `cacheDir`，交给 `MediaPlayer` 循环。
+
+场景切换只改播放速度，不换曲：菜单与牌桌 1.0，Boss 0.94（沉下来），结算与商店 1.06（轻快）。
+循环点用"多渲 1.2 小节、尾巴折回开头"处理，听不出接缝。
+
+手牌也不是瞬间出现的：新牌从下方 20dp 带 9° 倾角落下，按位置错峰 42ms，
+五张牌是 0.17 秒的"唰唰唰"，和发牌音效对得上。
+
 ## 安装
 
 ```bash
@@ -56,14 +69,14 @@ adb devices
 adb install -r dist/wristjoker.apk
 ```
 
-`dist/wristjoker.apk` 是 debug 签名的 release 包（20,483,820 字节，SHA256 `74e0698f…fe441`），仅用于侧载验证；要正式分发请换成自己的签名。
+`dist/wristjoker.apk` 是 debug 签名的 release 包（20,500,204 字节，SHA256 `865633fe…94750`），仅用于侧载验证；要正式分发请换成自己的签名。
 
 ## 构建
 
 需要 **JDK 17** 与 **Android SDK Platform 36**（`compileSdk 36`，`minSdk 30`，`targetSdk 34` 对齐 Galaxy Watch7 出厂系统）。
 
 ```bash
-# 142 个 JVM 单元测试（纯逻辑，不需要模拟器）
+# 146 个 JVM 单元测试（纯逻辑，不需要模拟器）
 ./gradlew :app:testDebugUnitTest
 
 # 生成 release APK
@@ -78,7 +91,7 @@ adb install -r dist/wristjoker.apk
 
 | 项 | 结果 |
 | --- | --- |
-| 单元测试 | 142 个用例全通过（牌型边界、计分顺序、Boss 副作用、存档往返、内容量断言、圆弦几何） |
+| 单元测试 | 146 个用例全通过（牌型边界、计分顺序、Boss 副作用、存档往返、内容量断言、圆弦几何） |
 | 界面几何 | 13 个界面四角均不越界，最远 99.0dp / 阈值 104dp |
 | 产物 | `assembleRelease` 成功，APK 可解析安装 |
 
@@ -90,10 +103,10 @@ adb install -r dist/wristjoker.apk
 app/src/main/java/com/wearos/wristjoker/
 ├── game/          纯 Kotlin 规则层：牌、牌型、计分、小丑、消耗品、券、标签、赌注、挑战、存档编解码
 ├── ui/            Compose 界面：圆弦骨架、13 个页面、卡牌控件、面板、图鉴、设置
-├── fx/            音效与震动反馈
+├── fx/            声音：合成音效、程序化爵士循环、震动
 ├── SaveStore.kt   本地存档 / 设置 / 解锁进度
 └── MainActivity.kt 导航与状态宿主
-app/src/test/      142 个 JVM 单测
+app/src/test/      146 个 JVM 单测
 tools/             圆屏几何校验、13 屏预览渲染
 preview/           预览图
 dist/              发行 APK
