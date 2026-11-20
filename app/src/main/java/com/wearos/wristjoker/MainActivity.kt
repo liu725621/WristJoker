@@ -24,6 +24,7 @@ import com.wearos.wristjoker.game.PackContent
 import com.wearos.wristjoker.game.Phase
 import com.wearos.wristjoker.game.ShopItem
 import com.wearos.wristjoker.game.SortMode
+import com.wearos.wristjoker.tile.TileRefresh
 import com.wearos.wristjoker.ui.BlindSelectScreen
 import com.wearos.wristjoker.ui.CashOutScreen
 import com.wearos.wristjoker.ui.ChallengeScreen
@@ -97,6 +98,9 @@ class MainActivity : ComponentActivity() {
         ) {
             store.persist(engine)
         }
+        // 离场是卡片最容易被看一眼的时刻（抬腕 → 右滑），强制刷一次，
+        // 不走 refresh() 的 2 秒节流。
+        TileRefresh.nudge(this, force = true)
     }
 
     override fun onDestroy() {
@@ -109,6 +113,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun WristJokerApp(engine: GameEngine, store: SaveStore) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var ui by remember { mutableStateOf(engine.snapshot()) }
     /** 0 = 关，1 = 小丑页，2 = 消耗品页，3 = 等级页，4 = 券与标签页 */
     var panel by remember { mutableIntStateOf(0) }
@@ -160,6 +165,9 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
             p != Phase.GAME_OVER && p != Phase.WIN
         ) {
             store.persist(engine)
+            // 卡片（Tile）读的是同一份存档。出牌 / 结算 / 进商店都该让卡片跟上，
+            // 具体节流在 TileRefresh 里做。
+            TileRefresh.nudge(context)
         }
         // 图鉴：把这一帧"出现过"的东西都记成已解锁。商店里摆着的、
         // 手里拿着的、包内开出的都算 —— 玩家见过就不该在图鉴里还是个问号。
