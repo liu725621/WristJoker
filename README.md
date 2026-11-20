@@ -92,7 +92,7 @@ adb devices
 adb install -r dist/wristjoker.apk
 ```
 
-`dist/wristjoker.apk` 是 debug 签名的 release 包（20,565,740 字节，SHA256 `a818515d…b8f5`），仅用于侧载验证；要正式分发请换成自己的签名。
+`dist/wristjoker.apk` 是 debug 签名的 release 包（20,565,740 字节，SHA256 `452918e3…3ffd`），仅用于侧载验证；要正式分发请换成自己的签名。
 
 ## 构建
 

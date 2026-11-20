@@ -62,7 +62,7 @@ object Pal {
     val WineRed = Color(0xFF8A4638)
     val BossRed = Color(0xFFA8473A)
     val BlindGreen = Color(0xFF5F7360)
-    val Purple = Color(0xFF7A6580)
+    val Purple = Color(0xFF9A7590)
 
     // ---- 功能色（语义不变，饱和度各降一档）----
     val Chip = Color(0xFF5E9BB0)     // 筹码：灰蓝
