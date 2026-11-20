@@ -100,17 +100,23 @@ fun MenuScreen(
         BandGap(L.gap[0])
 
         BandRow(L.w[1], L.h[1], horizontalArrangement = Arrangement.Center) {
+            // 1999 的封面标题：米白衬线 + 宽字距，不做立体字。
+            // 原来的红色描边立体字是"街机高分榜"，和新的印刷底冲突。
             EmbossedTitle(
                 text = "腕上小丑",
-                color = Pal.SuitRed,
-                depthColor = Pal.FeltDark,
-                style = Type.Medium.copy(fontSize = 21.sp, fontWeight = FontWeight.Black),
+                color = Pal.Cream,
+                depthColor = Pal.Ink700,
+                style = Type.Title.copy(fontSize = 21.sp, letterSpacing = 2.4.sp),
             )
         }
         BandGap(L.gap[1])
 
         BandRow(L.w[2], L.h[2], horizontalArrangement = Arrangement.Center) {
-            PixelText("JOKER", Pal.Money, pixel = 1.8.dp)
+            // 小号大写英文 + 大字距，1999 的"标签行"
+            T(
+                "J O K E R",
+                Type.Caption.copy(fontSize = 7.sp, color = Pal.Amber400, letterSpacing = 2.6.sp),
+            )
         }
         BandGap(L.gap[2])
 

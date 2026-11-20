@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import com.wearos.wristjoker.game.GameUi
 import com.wearos.wristjoker.game.PackContent
 import com.wearos.wristjoker.game.Phase
 import com.wearos.wristjoker.game.ShopItem
+import com.wearos.wristjoker.game.SortMode
 import com.wearos.wristjoker.ui.BlindSelectScreen
 import com.wearos.wristjoker.ui.CashOutScreen
 import com.wearos.wristjoker.ui.ChallengeScreen
@@ -32,6 +34,9 @@ import com.wearos.wristjoker.ui.EndScreen
 import com.wearos.wristjoker.ui.FeltBackground
 import com.wearos.wristjoker.ui.GameScreen
 import com.wearos.wristjoker.ui.InfoPanel
+import com.wearos.wristjoker.ui.DeckViewScreen
+import com.wearos.wristjoker.ui.RunInfoScreen
+import com.wearos.wristjoker.ui.Pal
 import com.wearos.wristjoker.ui.DetailOverlay
 import com.wearos.wristjoker.ui.DetailTarget
 import com.wearos.wristjoker.ui.MenuScreen
@@ -112,6 +117,8 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
     var recorded by remember { mutableStateOf(false) }
     /** 菜单上的两个覆盖层：图鉴 / 设置。它们不是 Phase，盖在菜单上即可。 */
     var overlay by remember { mutableStateOf<Overlay?>(null) }
+    /** 手牌排序模式：只在牌桌用，不落盘（下一局重新按点数排更符合直觉）。 */
+    var sortMode by remember { mutableStateOf(SortMode.RANK) }
     var seen by remember { mutableStateOf(store.seen()) }
     var maxStake by remember { mutableIntStateOf(store.maxStake) }
 
@@ -261,6 +268,17 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                     Sfx.play(Sfx.Kind.SELECT, .4f)
                     refresh()
                 },
+                onSort = {
+                    val next = sortMode.next()
+                    sortMode = next
+                    engine.sortHand(next)
+                    Sfx.play(Sfx.Kind.SELECT, .6f)
+                    Haptics.tap(0)
+                    refresh()
+                },
+                onOpenDeck = { overlay = Overlay.DECK },
+                onOpenInfo = { overlay = Overlay.INFO },
+                sortMode = sortMode,
                 speed = when (animSpeed) {
                     0 -> .7f
                     2 -> 1.5f
@@ -384,26 +402,56 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
             )
         }
 
-        // ---- 图鉴 / 设置：盖在菜单之上 ----
-        when (overlay) {
-            Overlay.COLLECTION -> CollectionScreen(
-                seen = seen,
-                onBack = { overlay = null },
-            )
-            Overlay.SETTINGS -> SettingsScreen(
-                musicLevel = musicLevel,
-                sfxLevel = sfxLevel,
-                hapticsOn = hapticsOn,
-                crtLevel = crtLevel,
-                animSpeed = animSpeed,
-                onMusic = { musicLevel = it; store.musicLevel = it },
-                onSfx = { sfxLevel = it; store.sfxLevel = it; Sfx.play(Sfx.Kind.SELECT) },
-                onHaptics = { hapticsOn = it; store.hapticsOn = it; Haptics.tap(1) },
-                onCrt = { crtLevel = it; store.crtLevel = it },
-                onSpeed = { animSpeed = it; store.animSpeed = it },
-                onBack = { overlay = null },
-            )
-            null -> Unit
+        // ---- 覆盖层：图鉴 / 设置 / 牌堆 / 牌型等级 ----
+        //
+        // 加一层近乎不透明的底：这四个页面都是"整页替换"，不是浮窗。
+        // 之前直接叠在菜单上，菜单的字会从下面透出来（菜单元素少所以没被发现，
+        // 盖在牌桌上就明显了）。
+        if (overlay != null) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Pal.Bg.copy(alpha = .97f)),
+            ) {
+                when (overlay) {
+                    Overlay.COLLECTION -> CollectionScreen(
+                        seen = seen,
+                        onBack = { overlay = null },
+                    )
+                    Overlay.SETTINGS -> SettingsScreen(
+                        musicLevel = musicLevel,
+                        sfxLevel = sfxLevel,
+                        hapticsOn = hapticsOn,
+                        crtLevel = crtLevel,
+                        animSpeed = animSpeed,
+                        onMusic = { musicLevel = it; store.musicLevel = it },
+                        onSfx = { sfxLevel = it; store.sfxLevel = it; Sfx.play(Sfx.Kind.SELECT) },
+                        onHaptics = { hapticsOn = it; store.hapticsOn = it; Haptics.tap(1) },
+                        onCrt = { crtLevel = it; store.crtLevel = it },
+                        onSpeed = { animSpeed = it; store.animSpeed = it },
+                        onBack = { overlay = null },
+                    )
+                    Overlay.DECK -> DeckViewScreen(
+                        drawPile = ui.drawPileCards,
+                        discard = ui.discardCards,
+                        sortMode = sortMode,
+                        onSort = {
+                            val next = sortMode.next()
+                            sortMode = next
+                            engine.sortHand(next)
+                            Sfx.play(Sfx.Kind.SELECT, .6f)
+                            refresh()
+                        },
+                        onBack = { overlay = null },
+                    )
+                    Overlay.INFO -> RunInfoScreen(
+                        levels = ui.levels,
+                        playedTypes = ui.playedTypes,
+                        onBack = { overlay = null },
+                    )
+                    null -> Unit
+                }
+            }
         }
 
         // ---- 信息面板：小丑 / 消耗品 / 等级 / 券 ----
@@ -434,7 +482,7 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
 }
 
 /** 菜单上的两个全屏覆盖层。 */
-private enum class Overlay { COLLECTION, SETTINGS }
+private enum class Overlay { COLLECTION, SETTINGS, DECK, INFO }
 
 /**
  * 把一帧 UI 快照里"出现过"的图鉴 id 全部收集起来。
