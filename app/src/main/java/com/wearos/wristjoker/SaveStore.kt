@@ -135,6 +135,11 @@ class SaveStore(context: Context) {
         get() = prefs.getInt(KEY_CRT, 2)
         set(value) = prefs.edit().putInt(KEY_CRT, value.coerceIn(0, 3)).apply()
 
+    /** 背景音乐音量档位：0 关 / 1 小 / 2 中 / 3 大。默认「小」—— 表扬声器不适合大声放 bed。 */
+    var musicLevel: Int
+        get() = prefs.getInt(KEY_MUSIC, 1)
+        set(value) = prefs.edit().putInt(KEY_MUSIC, value.coerceIn(0, 3)).apply()
+
     /** 结算动画速度档位：0 慢 / 1 标准 / 2 快。 */
     var animSpeed: Int
         get() = prefs.getInt(KEY_SPEED, 1)
@@ -151,5 +156,6 @@ class SaveStore(context: Context) {
         const val KEY_HAPTICS = "haptics_on"
         const val KEY_CRT = "crt_level"
         const val KEY_SPEED = "anim_speed"
+        const val KEY_MUSIC = "music_level"
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.wearos.wristjoker.fx.Haptics
+import com.wearos.wristjoker.fx.Music
 import com.wearos.wristjoker.fx.Sfx
 import com.wearos.wristjoker.game.GameEngine
 import com.wearos.wristjoker.game.GameUi
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
 
         Sfx.init(this)
         Haptics.init(this)
+        Music.init(this)
 
         store = SaveStore(this)
         engine = GameEngine()
@@ -73,8 +75,14 @@ class MainActivity : ComponentActivity() {
         setContent { WristJokerApp(engine, store) }
     }
 
+    override fun onStart() {
+        super.onStart()
+        Music.setActive(true)
+    }
+
     override fun onStop() {
         super.onStop()
+        Music.setActive(false)
         // 只要不是停在菜单 / 选牌组 / 选挑战 / 结束态，就落盘。
         // 结束态不存 —— 已结束的局没必要"继续"；选牌组/选挑战存下来，
         // 下次启动会落在一个没有手牌的页面上。
@@ -90,6 +98,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         Sfx.release()
         Haptics.release()
+        Music.release()
     }
 }
 
@@ -107,6 +116,7 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
     var maxStake by remember { mutableIntStateOf(store.maxStake) }
 
     // 设置项：一轮生命周期内只从磁盘读一次，之后即时生效
+    var musicLevel by remember { mutableIntStateOf(store.musicLevel) }
     var sfxLevel by remember { mutableIntStateOf(store.sfxLevel) }
     var hapticsOn by remember { mutableStateOf(store.hapticsOn) }
     var crtLevel by remember { mutableIntStateOf(store.crtLevel) }
@@ -117,6 +127,20 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
         Sfx.setEnabled(sfxLevel > 0)
     }
     LaunchedEffect(hapticsOn) { Haptics.setEnabled(hapticsOn) }
+    LaunchedEffect(musicLevel) {
+        // 音乐比音效更"占耳朵"，同一档位下音量压到三成左右
+        Music.setVolume(listOf(0f, .18f, .32f, .5f)[musicLevel.coerceIn(0, 3)])
+        Music.setEnabled(musicLevel > 0)
+    }
+    // 场景切换只改速度：菜单最松弛，Boss 慢下来，结算页轻快一点
+    LaunchedEffect(ui.phase, ui.isBoss) {
+        val mood = when (ui.phase) {
+            Phase.PLAYING, Phase.BLIND_SELECT -> if (ui.isBoss) Music.Mood.BOSS else Music.Mood.PLAY
+            Phase.CASH_OUT, Phase.SHOP, Phase.PACK_OPEN -> Music.Mood.CASH
+            else -> Music.Mood.MENU
+        }
+        Music.play(mood)
+    }
 
     fun refresh() {
         ui = engine.snapshot()
@@ -367,10 +391,12 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                 onBack = { overlay = null },
             )
             Overlay.SETTINGS -> SettingsScreen(
+                musicLevel = musicLevel,
                 sfxLevel = sfxLevel,
                 hapticsOn = hapticsOn,
                 crtLevel = crtLevel,
                 animSpeed = animSpeed,
+                onMusic = { musicLevel = it; store.musicLevel = it },
                 onSfx = { sfxLevel = it; store.sfxLevel = it; Sfx.play(Sfx.Kind.SELECT) },
                 onHaptics = { hapticsOn = it; store.hapticsOn = it; Haptics.tap(1) },
                 onCrt = { crtLevel = it; store.crtLevel = it },

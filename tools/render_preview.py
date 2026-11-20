@@ -744,7 +744,8 @@ def screen_detail(img):
         elif name == "btn":
             draw_button(d, cx, cy, w * 0.52, 24, "再点确认卖出", MULT, filled=True)
         elif name == "hint":
-            text(d, cx, cy, "点空白处返回", 5.5, FELT_HI)
+            # 有小丑台词时，底部那行显示 flavor 而不是操作提示
+            text(d, cx, cy, "留一张国王，加一次倍率。", 5.5, GOLD)
 
 
 def screen_end(img):
@@ -872,12 +873,13 @@ def screen_collection(img):
 def screen_settings(img):
     """设置：四行开关，全部即时生效。"""
     d = ImageDraw.Draw(img)
-    rows, _ = layout_bands([("head", 12, 3), ("list", 96, 3), ("back", 20, 0)])
+    rows, _ = layout_bands([("head", 12, 3), ("list", 100, 3), ("back", 18, 0)])
     items = [
-        ("音效", "合成音，无音频文件", "中", MONEY),
-        ("震屏", "打击感的触觉层", "开", CHIP),
-        ("扫描线", "CRT 叠加强度", "中", GREEN),
-        ("结算速度", "一手牌的动画节奏", "标准", MULT),
+        ("音乐", "程序化爵士", "小", GOLD),
+        ("音效", "合成音", "中", MONEY),
+        ("震屏", "触觉层", "开", CHIP),
+        ("扫描线", "CRT 强度", "中", GREEN),
+        ("节奏", "结算动画", "标准", MULT),
     ]
     for name, w, cy, h in rows:
         cx = W / 2
@@ -885,17 +887,17 @@ def screen_settings(img):
             text(d, cx - px(w) / 2, cy, "设置", 11, MONEY, anchor="lm", bold=True)
             text(d, cx + px(w) / 2, cy, "即时生效", 6, DIM, anchor="rm")
         elif name == "list":
-            y0 = cy - px(h) / 2
+            y0 = cy - px(h) / 2 + px(1)
             for i, (l, hint, val, col) in enumerate(items):
-                ry = y0 + px(11) + px(24) * i
-                rrect(d, cx, ry, w, 22, 3, fill=SURFACE, outline=col, width=1)
-                text(d, cx - px(w) / 2 + px(5), ry - px(4), l, 7.5, CREAM, anchor="lm", bold=True)
-                text(d, cx - px(w) / 2 + px(5), ry + px(4.5), hint, 5.5, DIM, anchor="lm")
-                vx = cx + px(w) / 2 - px(12)
+                ry = y0 + px(10) + px(20) * i
+                rrect(d, cx, ry, w, 18, 3, fill=SURFACE, outline=col, width=1)
+                text(d, cx - px(w) / 2 + px(5), ry, l, 7.5, CREAM, anchor="lm", bold=True)
+                vx = cx + px(w) / 2 - px(13)
+                text(d, vx - px(11), ry, hint, 5.2, DIM, anchor="rm")
                 rrect(d, vx, ry, 20, 12, 2, fill=(30, 42, 46), outline=col, width=1)
                 text(d, vx, ry, val, 6.5, col)
         elif name == "back":
-            draw_button(d, cx, cy, w * 0.4, 19, "返回", CHIP, filled=False)
+            draw_button(d, cx, cy, w * 0.4, 18, "返回", CHIP, filled=False)
 
 
 SCREENS = [

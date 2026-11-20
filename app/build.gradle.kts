@@ -15,8 +15,8 @@ android {
         // targetSdk 对齐真机 34，避免在 Wear OS 5 上走未验证的新行为。
         minSdk = 30
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0-watch"
+        versionCode = 2
+        versionName = "1.1-watch"
     }
 
     buildTypes {

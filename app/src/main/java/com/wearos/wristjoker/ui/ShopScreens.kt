@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wearos.wristjoker.game.Consumable
 import com.wearos.wristjoker.game.GameUi
+import com.wearos.wristjoker.game.JokerFlavor
 import com.wearos.wristjoker.game.JokerInst
 import com.wearos.wristjoker.game.PackContent
 import com.wearos.wristjoker.game.PackView
@@ -849,6 +850,8 @@ fun DetailOverlay(
     val subtitle: String
     val body: String
     val accent: Color
+    /** 小丑的台词：不参与计算，只让这张牌像个人。 */
+    val flavor: String?
     when (target) {
         is DetailTarget.ShopEntry -> {
             val it0 = target.item
@@ -871,6 +874,7 @@ fun DetailOverlay(
                 is ShopItem.BoosterItem -> boosterBody(it0)
                 is ShopItem.VoucherItem -> it0.v.desc
             }
+            flavor = (it0 as? ShopItem.JokerItem)?.inst?.id?.let { JokerFlavor.of(it) }
             accent = when (it0) {
                 is ShopItem.JokerItem -> rarityColorOf(it0.inst.rarity)
                 is ShopItem.ConsumableItem -> Pal.Purple
@@ -882,12 +886,14 @@ fun DetailOverlay(
             title = target.joker.name
             subtitle = "${target.joker.rarity.cn} · 卖 \$${target.joker.sellPrice}"
             body = target.joker.desc
+            flavor = JokerFlavor.of(target.joker.id)
             accent = rarityColorOf(target.joker.rarity)
         }
         is DetailTarget.OwnedConsumable -> {
             title = target.c.name
             subtitle = "${target.c.kind.cn} · ${target.c.en}"
             body = target.c.desc + if (target.c.needsCards) "（需先在手牌上选牌）" else ""
+            flavor = null
             accent = Pal.Purple
         }
     }
@@ -992,9 +998,14 @@ fun DetailOverlay(
             BandGap(L.gap[4])
 
             BandRow(L.w[5], L.h[5], horizontalArrangement = Arrangement.Center) {
+                // 有小丑台词就显示台词 —— 原版也是把 flavor text 摆在卡底一行小字。
+                // 没有台词（消耗品/卡包/券）才退回操作提示。
                 T(
-                    "点空白处返回",
-                    Type.Tiny.copy(color = Pal.FeltHi, fontSize = 5.5.sp),
+                    flavor ?: "点空白处返回",
+                    Type.Tiny.copy(
+                        color = if (flavor != null) Pal.Money.copy(alpha = .72f) else Pal.FeltHi,
+                        fontSize = 5.5.sp,
+                    ),
                 )
             }
         }
