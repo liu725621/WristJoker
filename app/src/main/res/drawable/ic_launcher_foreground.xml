@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 图标前景：一张菱形牌 + 中心红点，抽象自"小丑牌"而非复制原作美术 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#C8A96A"
+        android:strokeWidth="2.5"
+        android:pathData="M54,24 L76,54 L54,84 L32,54 Z" />
+    <path
+        android:fillColor="#F2EFE6"
+        android:pathData="M54,34 L68,54 L54,74 L40,54 Z" />
+    <path
+        android:fillColor="#D64545"
+        android:pathData="M54,46 L61,54 L54,62 L47,54 Z" />
+</vector>

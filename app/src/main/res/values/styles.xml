@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose 接管界面绘制，这里只需要一个无 ActionBar 的深色窗口底，
+         避免启动瞬间闪白。 -->
+    <style name="Theme.WristJoker" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:windowBackground">#FF0B0F1A</item>
+        <item name="android:navigationBarColor">#00000000</item>
+        <item name="android:statusBarColor">#00000000</item>
+    </style>
+</resources>
