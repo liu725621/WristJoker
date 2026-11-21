@@ -626,9 +626,10 @@ def screen_playing(img):
             x0 = cx - px(w) / 2
             text(d, x0 + px(2), cy - px(1.5), "AIII/8·小盲", 6.5, MONEY, anchor="lm")
             d.line([x0 + px(2), cy + px(5), x0 + px(22), cy + px(5)], fill=(120, 112, 96), width=1)
-            # 手牌上限：买了「画家」/吃了「通灵板」之后，唯一能验证的地方
-            text(d, cx + px(9), cy - px(1.5), "手8/8", 5.5, DIM)
-            d.line([cx + px(3), cy + px(5), cx + px(15), cy + px(5)], fill=(120, 112, 96), width=1)
+            # 牌堆查看器入口：迷你牌背 + 手牌数胶囊（与 GameScreen 徽章一致）
+            rrect(d, cx + px(8), cy, 24, 10, 2, fill=(36, 30, 24), outline=(92, 100, 85), width=1)
+            draw_cardback(d, cx + px(1), cy, 6, 8)
+            text(d, cx + px(9), cy, "8/8", 5.5, DIM)
             rrect(d, x0 + px(w) - px(30), cy, 24, 10, 2, fill=SURFACE, outline=MONEY, width=1)
             text(d, x0 + px(w) - px(30), cy, "$17", 6.5, MONEY)
             # 退出：14dp 的小方块 + ×

@@ -263,6 +263,18 @@ class SaveStore(context: Context) {
         get() = prefs.getInt(KEY_SPEED, 1)
         set(value) = prefs.edit().putInt(KEY_SPEED, value.coerceIn(0, 2)).apply()
 
+    // ---------------------------------------------------------------- 引导
+
+    /**
+     * 是否已经看过首局引导。
+     *
+     * 只增不减、跨局保留，也不参与 [wipe] —— 引导看一次就该永久关闭，
+     * 老玩家开新局不该再被教一遍"点牌选中"。
+     */
+    var tutorialSeen: Boolean
+        get() = prefs.getBoolean(KEY_TUTORIAL, false)
+        set(value) = prefs.edit().putBoolean(KEY_TUTORIAL, value).apply()
+
     private companion object {
         const val KEY_RUN = "run"
         const val KEY_BEST_ANTE = "best_ante"
@@ -284,5 +296,6 @@ class SaveStore(context: Context) {
         const val KEY_CRT = "crt_level"
         const val KEY_SPEED = "anim_speed"
         const val KEY_MUSIC = "music_level"
+        const val KEY_TUTORIAL = "tutorial_seen"
     }
 }

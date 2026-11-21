@@ -372,6 +372,8 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                     2 -> 1.5f
                     else -> 1f
                 },
+                showTutorial = !store.tutorialSeen,
+                onDismissTutorial = { store.tutorialSeen = true },
             )
 
             Phase.CASH_OUT -> CashOutScreen(

@@ -149,12 +149,26 @@ fun GameScreen(
     sortMode: SortMode = SortMode.RANK,
     /** 结算节奏倍率：设置页的「慢 / 标准 / 快」映射成 0.7 / 1 / 1.5。 */
     speed: Float = 1f,
+    /** 首次游玩引导：进牌桌时显示一次「点牌选中→出牌」等提示。 */
+    showTutorial: Boolean = false,
+    /** 引导被关闭（点了"开始"或成功出过一次牌）时回调，用于持久化标记。 */
+    onDismissTutorial: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var cursor by remember { mutableIntStateOf(0) }
     val focus = remember { FocusRequester() }
     /** 退出确认层：局内唯一的"离开"入口，误触代价是一局，所以要点两次。 */
     var confirmExit by remember { mutableStateOf(false) }
+    /** 首局引导的可见性：进牌桌时按 [showTutorial] 起一次。 */
+    var tutorialVisible by remember { mutableStateOf(showTutorial) }
+    // 成功出过一次牌就自动关掉引导并落盘标记 —— "点牌选中→出牌"这一步
+    // 已经会了，剩下的拖拽 / 牌堆靠实际操作比看字更快。
+    LaunchedEffect(ui.handsPlayed) {
+        if (tutorialVisible && ui.handsPlayed > 0) {
+            tutorialVisible = false
+            onDismissTutorial()
+        }
+    }
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
@@ -291,25 +305,27 @@ fun GameScreen(
                 // 手牌上限必须看得见 —— 玩家买了「画家」、吃了「通灵板」之后
                 // 唯一能验证的方式就是这里的数字变了，以及扇形里的牌数变了。
                 // 这一块同时是**牌堆查看器的入口**：点它就能看待抽的牌。
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                // 牌堆查看器入口。上一版是「手8/8 + 一条 0.5dp 下划线」，
+                // 那条线几乎不可能被发现 —— 和商店「查看」按钮一个病根：
+                // 做了入口，但视觉上不像能点。改成「迷你牌背 + 数字」胶囊，
+                // 一眼知道这是牌堆，点它看剩余牌。
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(2.dp))
-                        .clickable { onOpenDeck() },
+                        .background(Pal.FeltDark.copy(alpha = .55f))
+                        .border(1.dp, Pal.FeltHi.copy(alpha = .42f), RoundedCornerShape(2.dp))
+                        .clickable { Haptics.tap(0); onOpenDeck() }
+                        .padding(horizontal = 2.5.dp, vertical = 1.dp),
                 ) {
+                    CardBackArt(Modifier.size(6.dp, 8.dp))
+                    Spacer(Modifier.width(2.dp))
                     T(
-                        "手${ui.hand.size}/${ui.handSize}",
+                        "${ui.hand.size}/${ui.handSize}",
                         Type.TinyMono.copy(
                             color = if (ui.handSize > 8) Pal.Green else Pal.Dim,
-                            fontSize = 6.sp,
+                            fontSize = 6.5.sp,
                         ),
-                    )
-                    // 可点提示：一条 0.5dp 的下划线，比加图标省宽度
-                    Box(
-                        Modifier
-                            .width(16.dp)
-                            .height(.5.dp)
-                            .background(Pal.Dim.copy(alpha = .45f)),
                     )
                 }
                 CountBadge("$${ui.money}", Pal.Money)
@@ -490,6 +506,17 @@ fun GameScreen(
             }
         }
 
+        // ---- 首局引导：居中提示卡，不遮罩，点任意处关闭 ----
+        if (tutorialVisible) {
+            TutorialHint(
+                onDismiss = {
+                    tutorialVisible = false
+                    onDismissTutorial()
+                },
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+
         // ---- 退出确认：盖住整张牌桌 ----
         if (confirmExit) {
             ExitConfirm(
@@ -500,6 +527,37 @@ fun GameScreen(
                 },
             )
         }
+    }
+}
+
+/**
+ * 首局引导卡。
+ *
+ * 不遮罩、不抢焦点：牌桌仍在下面，玩家看完点任意处即可开始。
+ * 内容只给三条最反直觉的操作 —— 点牌/出牌、长按拖拽、牌堆入口，
+ * 这些是"没人告诉你就不可能知道"的，其余一看就懂。
+ */
+@Composable
+private fun TutorialHint(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .width(150.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Pal.Ink800.copy(alpha = .94f))
+            .border(1.dp, Pal.Money.copy(alpha = .55f), RoundedCornerShape(6.dp))
+            .clickable { onDismiss() }
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        T("上手", Type.Title.copy(fontSize = 12.sp, color = Pal.Money, letterSpacing = 1.2.sp))
+        Spacer(Modifier.height(5.dp))
+        T("点牌选中 · 再点「出牌」", Type.Tiny.copy(color = Pal.Cream, fontSize = 7.5.sp))
+        Spacer(Modifier.height(2.dp))
+        T("长按牌可拖拽换位", Type.Tiny.copy(color = Pal.Cream, fontSize = 7.5.sp))
+        Spacer(Modifier.height(2.dp))
+        T("点顶栏牌背看牌堆", Type.Tiny.copy(color = Pal.Cream, fontSize = 7.5.sp))
+        Spacer(Modifier.height(6.dp))
+        T("点任意处开始", Type.TinyMono.copy(color = Pal.Dim, fontSize = 6.sp))
     }
 }
 
