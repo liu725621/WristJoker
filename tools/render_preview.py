@@ -112,9 +112,87 @@ def draw_felt(img):
     return img
 
 
+# 数字牌 pips 排列（与 Art.kt 的 pipLayout 同步）：牌面归一化坐标 (x, y)。
+PIP_LAYOUT = {
+    "2": [(.56, .26), (.56, .77)],
+    "3": [(.56, .26), (.56, .515), (.56, .77)],
+    "4": [(.42, .26), (.70, .26), (.42, .77), (.70, .77)],
+    "5": [(.42, .26), (.70, .26), (.56, .515), (.42, .77), (.70, .77)],
+    "6": [(.42, .26), (.70, .26), (.42, .43), (.70, .43), (.42, .77), (.70, .77)],
+    "7": [(.56, .20), (.42, .26), (.70, .26), (.42, .43), (.70, .43), (.42, .77), (.70, .77)],
+    "8": [(.42, .26), (.70, .26), (.42, .43), (.70, .43), (.42, .60), (.70, .60), (.42, .77), (.70, .77)],
+    "9": [(.42, .26), (.70, .26), (.42, .43), (.70, .43), (.56, .515),
+          (.42, .60), (.70, .60), (.42, .77), (.70, .77)],
+    "10": [(.42, .26), (.70, .26), (.56, .34), (.42, .43), (.70, .43),
+           (.42, .60), (.70, .60), (.56, .69), (.42, .77), (.70, .77)],
+}
+
+# J/Q/K 像素半身像（10×14，与 Art.kt 的 courtSprite 同步）。
+COURT_SPRITES = {
+    "K": [
+        ".C......C.",
+        ".CCCCCCCC.",
+        "..SSSSSS..",
+        "..SKSSKS..",
+        "..SSSSSS..",
+        "...SSSS...",
+        ".WWWWWWWW.",
+        ".WWWWWWWW.",
+        "..PPPPPP..",
+        ".PPFFFFPP.",
+        ".PPPPPPPP.",
+        ".PP....PP.",
+        ".PP....PP.",
+        "..........",
+    ],
+    "Q": [
+        ".C.CCCC.C.",
+        ".CCCCCCCC.",
+        "..SSSSSS..",
+        "..SKSSKS..",
+        "..SSSSSS..",
+        "...SRRS...",
+        ".RRRRRRRR.",
+        ".RRFFFFRR.",
+        ".RRRRRRRR.",
+        ".RRRRRRRR.",
+        ".RRRRRRRR.",
+        ".RR....RR.",
+        "..R....R..",
+        "..........",
+    ],
+    "J": [
+        "....B.....",
+        "...BBB....",
+        "..BBBBB...",
+        "..SSSSS...",
+        "..SKSSKS..",
+        "..SSSSS...",
+        "...SSS....",
+        "..BBBBB...",
+        ".BBFFFFBB.",
+        ".BBBBBBB..",
+        ".BBBBBBB..",
+        ".BB...BB..",
+        ".B.....B..",
+        "..........",
+    ],
+}
+
+COURT_COLORS = {
+    "C": MONEY,
+    "S": (232, 201, 160),
+    "K": CARD_EDGE,
+    "W": (242, 238, 227),
+    "P": PURPLE,
+    "R": SUIT_RED,
+    "B": CHIP,
+}
+
+
 def draw_cardface(d, cx, cy, w, h, rank, suit, enh=None, seal=None, edition=None,
                   blocked=False, selected=False, scoring=False):
-    """一张牌。与 CardFaceArt 的版面一致：左上索引块 + 中央花色。"""
+    """一张牌。与 CardFaceArt 的版面一致：左上索引块 + 中央 pips/人像/大花色。"""
     base = CARD_FACE
     if enh == "GOLD":
         base = MONEY
@@ -152,12 +230,31 @@ def draw_cardface(d, cx, cy, w, h, rank, suit, enh=None, seal=None, edition=None
             fill=(138, 144, 141), outline=CARD_EDGE,
         )
     else:
-        # 左上索引块（下移到色带之下，与 CardFaceArt 一致）
+        # 左上索引块（下移到色带之下、缩小让位给中央 pips，与 CardFaceArt 一致）
         ink = SUIT_RED if suit in "♥♦" else SUIT_BLACK
-        text(d, x0 + px(w) * .22, y0 + px(h) * .40, rank, h * 0.32, ink, bold=True)
-        text(d, x0 + px(w) * .22, y0 + px(h) * .70, suit, h * 0.24, ink, bold=True)
-        # 中央花色
-        text(d, cx + px(w) * .10, cy + px(h) * .04, suit, h * 0.48, ink, bold=True)
+        text(d, x0 + px(w) * .16, y0 + px(h) * .13, rank, h * 0.28, ink, bold=True)
+        text(d, x0 + px(w) * .16, y0 + px(h) * .28, suit, h * 0.17, ink, bold=True)
+        # 中央：A 大花色 / JQK 像素人像 / 数字 pips 排列（与 CardFaceArt 一致）
+        if rank == "A":
+            text(d, cx + px(w) * .04, cy + px(h) * .02, suit, h * 0.52, ink, bold=True)
+        elif rank in ("J", "Q", "K"):
+            sprite = COURT_SPRITES[rank]
+            cols, rows = 10, len(sprite)
+            cw = px(w) * .76 / cols
+            chh = px(h) * .70 / rows
+            ox = x0 + px(w) * .12
+            oy = y0 + px(h) * .16
+            for r, line in enumerate(sprite):
+                for c, ch in enumerate(line):
+                    col = ink if ch == "F" else COURT_COLORS.get(ch)
+                    if col is None:
+                        continue
+                    d.rectangle([ox + c * cw, oy + r * chh,
+                                 ox + (c + 1) * cw, oy + (r + 1) * chh], fill=col)
+        else:
+            pip = max(3.2, w * .15)
+            for (pxc, pyc) in PIP_LAYOUT.get(rank, []):
+                text(d, x0 + px(w) * pxc, y0 + px(h) * pyc, suit, pip, ink, bold=True)
 
     # 顶部双层通栏色带：上层版本、下层增强（与 CardFaceArt 一致）
     edh = max(3, px(h) * .085)

@@ -41,10 +41,10 @@ import kotlin.math.sin
  * 全部图形在这里用 Canvas 逐块重绘：5×7 点阵字符、四种花色、牌面、牌背、
  * 18 个小丑像素头像、赌桌毡、CRT 扫描线、四角光标。
  *
- * 牌面从上一版的位图切图改回纯 Canvas 绘制。原因很实际：手表手牌槽位是
- * 38×26dp，任何 88×124 的竖版位图塞进去都要裁掉大半，J/Q/K 的人像被截断，
- * 缩小后点数还会被重采样糊掉。改成矢量绘制后点数按点阵逐格画，在 26dp 高度
- * 里仍有 10dp 高的字号，且不依赖任何外部素材，APK 里没有一张牌面 PNG。
+ * 牌面从上一版的位图切图改回纯 Canvas 绘制。原因很实际：任何竖版位图塞进
+ * 25dp 高的手牌都要裁掉大半，缩小后还会被重采样糊掉。改成矢量绘制后，点数
+ * 按经典扑克布局排 N 个 pip、J/Q/K 画 10×14 像素半身像，且不依赖任何外部
+ * 素材，APK 里没有一张牌面 PNG。
  */
 
 /* ------------------------------------------------------------------ *
@@ -237,6 +237,112 @@ private fun rankGlyph(rank: Rank): String = when (rank) {
     else -> rank.label
 }
 
+/* ------------------------------------------------------------------ *
+ * 3.1 牌面中央图案：点数 pips + 宫廷人像
+ * ------------------------------------------------------------------ */
+
+/**
+ * 数字牌的点数排列（pips）。
+ *
+ * 返回每个 pip 的**牌面归一化坐标**（x∈[0,1] 相对牌宽，y∈[0,1] 相对牌高）。
+ * 布局取标准扑克牌的国际版：2/3 竖排一列，4 四角，5 四角加中心，
+ * 6/7/8 两列，9/10 两列加中心点缀。左列刻意偏右（x=.42 而不是 .30），
+ * 给左上角的点数索引块让出位置 —— 扇形手牌露出的正是左段，索引不能丢。
+ *
+ * 原版 Balatro 的牌面也是这个经典 pips 排列，只是像素风渲染；
+ * 这里用 [drawSuitShape] 的矢量花色逐个画，25dp 的牌上仍是 3.7dp 见方的
+ * 清晰小符号，而不是糊成一团的大花色。
+ */
+private fun pipLayout(rank: Rank): List<Pair<Float, Float>> {
+    val L = .42f; val M = .56f; val R = .70f
+    val y0 = .26f; val y1 = .43f; val y2 = .60f; val y3 = .77f
+    return when (rank) {
+        Rank.TWO -> listOf(M to y0, M to y3)
+        Rank.THREE -> listOf(M to y0, M to .515f, M to y3)
+        Rank.FOUR -> listOf(L to y0, R to y0, L to y3, R to y3)
+        Rank.FIVE -> listOf(L to y0, R to y0, M to .515f, L to y3, R to y3)
+        Rank.SIX -> listOf(L to y0, R to y0, L to y1, R to y1, L to y3, R to y3)
+        Rank.SEVEN -> listOf(M to .20f, L to y0, R to y0, L to y1, R to y1, L to y3, R to y3)
+        Rank.EIGHT -> listOf(L to y0, R to y0, L to y1, R to y1, L to y2, R to y2, L to y3, R to y3)
+        Rank.NINE -> listOf(L to y0, R to y0, L to y1, R to y1, M to .515f, L to y2, R to y2, L to y3, R to y3)
+        Rank.TEN -> listOf(L to y0, R to y0, M to .34f, L to y1, R to y1, L to y2, R to y2, M to .69f, L to y3, R to y3)
+        else -> emptyList()
+    }
+}
+
+/**
+ * J/Q/K 的像素半身像（10 列 × 14 行）。
+ *
+ * 原版 Balatro 的宫廷牌是彩色像素人像。手表 25dp 的牌面上画不了
+ * 原版那种精细插画，就用 10×14 的粗点阵画三张可一眼区分的半身像：
+ * King 紫衣金冠白须、Queen 红衣金冠红唇、Jack 蓝衣尖帽。颜色字符：
+ * C=皇冠金 S=肤色 K=描边 W=白 P=紫 R=红 B=蓝 F=胸前花色（随牌面花色）。
+ */
+private fun courtSprite(rank: Rank): List<String> = when (rank) {
+    Rank.KING -> listOf(
+        ".C......C.",
+        ".CCCCCCCC.",
+        "..SSSSSS..",
+        "..SKSSKS..",
+        "..SSSSSS..",
+        "...SSSS...",
+        ".WWWWWWWW.",
+        ".WWWWWWWW.",
+        "..PPPPPP..",
+        ".PPFFFFPP.",
+        ".PPPPPPPP.",
+        ".PP....PP.",
+        ".PP....PP.",
+        "..........",
+    )
+    Rank.QUEEN -> listOf(
+        ".C.CCCC.C.",
+        ".CCCCCCCC.",
+        "..SSSSSS..",
+        "..SKSSKS..",
+        "..SSSSSS..",
+        "...SRRS...",
+        ".RRRRRRRR.",
+        ".RRFFFFRR.",
+        ".RRRRRRRR.",
+        ".RRRRRRRR.",
+        ".RRRRRRRR.",
+        ".RR....RR.",
+        "..R....R..",
+        "..........",
+    )
+    Rank.JACK -> listOf(
+        "....B.....",
+        "...BBB....",
+        "..BBBBB...",
+        "..SSSSS...",
+        "..SKSSKS..",
+        "..SSSSS...",
+        "...SSS....",
+        "..BBBBB...",
+        ".BBFFFFBB.",
+        ".BBBBBBB..",
+        ".BBBBBBB..",
+        ".BB...BB..",
+        ".B.....B..",
+        "..........",
+    )
+    else -> emptyList()
+}
+
+/** 宫廷人像的字符 → 颜色。'.' 返回 null（透明，不画）。 */
+private fun courtColor(ch: Char, suit: Suit): Color? = when (ch) {
+    'C' -> Pal.Money
+    'S' -> Color(0xFFE8C9A0)
+    'K' -> Pal.CardEdge
+    'W' -> Color(0xFFF2EEE3)
+    'P' -> Pal.Purple
+    'R' -> Pal.SuitRed
+    'B' -> Pal.Chip
+    'F' -> if (suit.isRed) Pal.SuitRed else Pal.SuitBlack
+    else -> null
+}
+
 /**
  * 一张牌的正脸（不含外框与点击层，由 [PlayingCard] 叠加）。
  *
@@ -360,39 +466,61 @@ fun CardFaceArt(card: Card, modifier: Modifier = Modifier) {
             return@Canvas
         }
 
-        // 左上角索引块：点数 + 花色。整体下移到色带之下，
-        // 否则点数的第一行会被增强带切掉。
-        val px = (h * .055f).coerceAtLeast(.68f)
+        // 左上角索引块：点数 + 花色，整体下移到色带之下。
+        //
+        // 中央改成按点数排 pips 之后，索引块要让出左段空间，所以缩小：
+        // 点数字号从 .055h 收到 .042h，花色从 .21h 收到 .15h —— 它现在
+        // 只作「精确读数」兜底，牌面点数主要靠中央 pip 直接数。
+        val px = (h * .042f).coerceAtLeast(.62f)
         val g = rankGlyph(card.rank)
         val bandBottom = enhTop + if (card.enh == Enhancement.NONE) 0f else enhH
-        val gx = w * .11f
-        val gy = bandBottom + h * .035f
+        val gx = w * .09f
+        val gy = bandBottom + h * .06f
         drawPixelText(g, ink, gx, gy, px)
-        val suitTop = gy + GLYPH_ROWS * px + h * .04f
-        val ss = (h * .21f).coerceAtLeast(2.6f)
+        val suitTop = gy + GLYPH_ROWS * px + h * .02f
+        val ss = (h * .15f).coerceAtLeast(2.4f)
         drawSuitShape(card.suit, ink, gx, suitTop, ss, ss)
 
-        // 中央：一律画大花色。
-        // 曾经在 J/Q/K 中央放点阵字母，但 25dp 高的牌面上 5×7 的 K、Q
-        // 只剩一团像素，认出「这是张 K」靠的其实是左上角的索引块。
-        // 所以中央统一用花色，宫牌改用花色上方的三齿冠冕做区分。
-        val court = card.rank == Rank.JACK ||
-            card.rank == Rank.QUEEN || card.rank == Rank.KING
-        val cs = (h * .62f).coerceAtLeast(5f)
-        val csx = w * .58f - cs / 2f
-        val csy = h * .24f
-        if (court) {
-            // 冠冕：三个小方块 + 一条底边
-            val u = (w * .045f).coerceAtLeast(.8f)
-            val crownY = h * .16f
-            val crownX = w * .58f - u * 2.5f
-            drawRect(ink, Offset(crownX, crownY + u), Size(u * 5, u * .8f))
-            for (i in 0 until 3) {
-                drawRect(ink, Offset(crownX + i * u * 2f, crownY - u * .6f), Size(u, u * 1.6f))
+        // 中央：按点数画原版风格的 pips / 大花色 / 宫廷人像。
+        //
+        // 上一版数字牌中央统一画一个大花色，丢失了「一眼数出点数」的
+        // 扑克牌核心信息 —— 6 个 pip 和 10 个 pip 看起来都是「一张红桃」。
+        // 现在数字牌按经典布局排 N 个 pip，J/Q/K 画三张不同的像素半身像，
+        // A 保持单张大花色（原版 Ace 就是这样）。点数靠 pip 直接数，
+        // 花色靠 pip 形状与颜色，左上索引块只作精确读数兜底。
+        val isCourt = card.rank == Rank.JACK || card.rank == Rank.QUEEN || card.rank == Rank.KING
+        when {
+            card.rank == Rank.ACE -> {
+                val cs = (h * .52f).coerceAtLeast(6f)
+                drawSuitShape(card.suit, ink, w * .54f - cs / 2f, h * .28f, cs, cs)
             }
-            drawSuitShape(card.suit, ink, csx, csy + h * .06f, cs * .86f, cs * .86f)
-        } else {
-            drawSuitShape(card.suit, ink, csx, csy, cs, cs)
+            isCourt -> {
+                val sprite = courtSprite(card.rank)
+                val cols = 10
+                val rows = sprite.size
+                val cw = (w * .76f) / cols          // 人像 x ∈ [.12w, .88w]
+                val chh = (h * .70f) / rows         // 人像 y ∈ [.16h, .86h]
+                val ox = w * .12f
+                val oy = h * .16f
+                for (r in 0 until rows) {
+                    val line = sprite[r]
+                    for (c in 0 until line.length) {
+                        val col = courtColor(line[c], card.suit) ?: continue
+                        drawRect(col, Offset(ox + c * cw, oy + r * chh), Size(cw + .3f, chh + .3f))
+                    }
+                }
+            }
+            else -> {
+                val pip = (w * .15f).coerceAtLeast(3.2f)
+                for ((pxc, pyc) in pipLayout(card.rank)) {
+                    drawSuitShape(
+                        card.suit, ink,
+                        w * pxc - pip / 2f,
+                        h * pyc - pip / 2f,
+                        pip, pip,
+                    )
+                }
+            }
         }
 
         // ---- 蜡封：左下角蜡点 ----
