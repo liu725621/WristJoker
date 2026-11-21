@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wearos.wristjoker.fx.Haptics
 import com.wearos.wristjoker.game.Consumable
 import com.wearos.wristjoker.game.GameUi
 import com.wearos.wristjoker.game.JokerFlavor
@@ -121,7 +122,10 @@ private fun OwnedBar(
                     .clip(RoundedCornerShape(1.dp))
                     .background(rarityColorOf(j.rarity).copy(alpha = .88f))
                     .border(.6.dp, Pal.CardFace.copy(alpha = .45f), RoundedCornerShape(1.dp))
-                    .clickable { onOpenDetail(DetailTarget.OwnedJoker(i, j)) },
+                    .clickable {
+                        Haptics.tap(1)
+                        onOpenDetail(DetailTarget.OwnedJoker(i, j))
+                    },
             )
         }
         if (ui.consumables.isNotEmpty()) {
@@ -135,19 +139,25 @@ private fun OwnedBar(
                         .clip(RoundedCornerShape(1.dp))
                         .background(Pal.FeltDark)
                         .border(.6.dp, Pal.Purple, RoundedCornerShape(1.dp))
-                        .clickable { onOpenDetail(DetailTarget.OwnedConsumable(i, c)) },
+                        .clickable {
+                            Haptics.tap(1)
+                            onOpenDetail(DetailTarget.OwnedConsumable(i, c))
+                        },
                 ) {
                     ConsumableArt(c, Modifier.fillMaxSize())
                 }
             }
         }
         Spacer(Modifier.weight(1f))
-        // 「查看」不再是一行暗字提示，而是一个金色可点的入口：点它等价于
-        // 点第一个已拥有的物品，玩家不用先猜到「前面那些色块其实能点」。
+        // 「查看」做成实底胶囊按钮：上一版只是 6sp 金色小字，玩家以为那是
+        // 说明文字而非可点入口；现在给足按钮的体量，一眼就知道能点。
         Box(
             Modifier
-                .clip(RoundedCornerShape(2.dp))
+                .height(11.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Pal.Money)
                 .clickable {
+                    Haptics.tap(1)
                     when {
                         ui.jokers.isNotEmpty() ->
                             onOpenDetail(DetailTarget.OwnedJoker(0, ui.jokers[0]))
@@ -155,10 +165,10 @@ private fun OwnedBar(
                             onOpenDetail(DetailTarget.OwnedConsumable(0, ui.consumables[0]))
                     }
                 }
-                .padding(horizontal = 3.dp, vertical = 1.dp),
+                .padding(horizontal = 5.dp),
             contentAlignment = Alignment.Center,
         ) {
-            T("查看 ›", Type.TinyMono.copy(color = Pal.Money, fontSize = 6.sp))
+            T("查看", Type.Button.copy(fontSize = 7.sp))
         }
     }
 }
@@ -244,7 +254,10 @@ private fun ShopTile(
             .clip(RoundedCornerShape(3.dp))
             .background(if (item.sold) Pal.Surface.copy(alpha = .40f) else Pal.Surface)
             .border(1.dp, edge, RoundedCornerShape(3.dp))
-            .clickable(enabled = !item.sold, onClick = onClick)
+            .clickable(enabled = !item.sold) {
+                Haptics.tap(1)
+                onClick()
+            }
             .padding(1.5.dp),
     ) {
         if (locked) {
@@ -474,7 +487,7 @@ fun ShopScreen(
                     label = if (ui.rerollCost == 0) "重掷 免费" else "重掷 \$${ui.rerollCost}",
                     enabled = ui.money >= ui.rerollCost,
                     accent = Pal.Chip,
-                    onClick = onReroll,
+                    onClick = { Haptics.tap(1); onReroll() },
                     modifier = Modifier.weight(1f),
                     filled = false,
                     height = 20,
@@ -483,7 +496,7 @@ fun ShopScreen(
                     label = "继续",
                     enabled = true,
                     accent = Pal.Money,
-                    onClick = onLeave,
+                    onClick = { Haptics.tap(1); onLeave() },
                     modifier = Modifier.weight(1f),
                     height = 20,
                 )
@@ -613,7 +626,10 @@ private fun ShopRow(
             .clip(shape)
             .background(if (item.sold) Pal.Surface.copy(alpha = .5f) else Pal.Surface)
             .border(1.1.dp, edge, shape)
-            .clickable(enabled = !item.sold, onClick = onClick)
+            .clickable(enabled = !item.sold) {
+                Haptics.tap(1)
+                onClick()
+            }
             .padding(horizontal = 3.dp, vertical = 1.dp),
     ) {
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {

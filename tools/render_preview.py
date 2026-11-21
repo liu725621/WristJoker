@@ -746,7 +746,8 @@ def screen_shop(img):
             for i in range(2):
                 rrect(d, bx, cy, 6, 6, 1, fill=FELT_DARK, outline=PURPLE, width=1)
                 bx += px(8)
-            text(d, cx + px(w) / 2, cy, "查看 ›", 6, MONEY, anchor="rm")
+            rrect(d, cx + px(w) / 2 - px(13), cy, 26, 11, 3, fill=MONEY, outline=MONEY)
+            text(d, cx + px(w) / 2 - px(13), cy, "查看", 7, FELT_DARK, anchor="mm")
         elif name == "cards":
             label_chip(left + px(5), cy, h, "商")
             tw = (w - 13) / 2

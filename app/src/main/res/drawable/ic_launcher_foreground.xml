@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    图标前景：一张竖着的牌 + 牌面上的一顶小丑帽。
+    图标前景：一张竖牌 + 完整小丑脸。
 
-    为什么是"牌 + 帽子"而不是小丑脸：图标在手表上只有 48dp，脸的五官
-    会糊成一团黑点；而"一张牌"的轮廓在任何尺寸下都成立，帽子是唯一
-    需要辨认的第二层信息。牌面的四角星与双线内框沿用界面的印刷母题。
+    上一版只有"帽子 + 一条分隔线"，缩小到 48dp 后像一张空白卡，帽子的
+    信息量太弱。这次把原版 Joker 的脸补全：黑帽、双眼、红鼻、微笑弧线。
+    五官用 2~3dp 的大色块（不是细线），48dp 下依然认得出"这是个笑面小丑"。
 
-    构图留在自适应图标的安全区内（中心 72×72），四角不会被圆形遮罩吃掉。
+    构图留在自适应图标安全区（中心 72×72）内，四角不会被圆形遮罩吃掉。
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -14,34 +14,46 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 牌身：纸色圆角矩形，深咖描边（油墨黑） -->
+    <!-- 牌身：纸色圆角矩形 = 脸盘，深咖描边（油墨黑） -->
     <path
         android:fillColor="#E8E1D1"
         android:strokeColor="#241E18"
         android:strokeWidth="1.6"
         android:pathData="M36,23h36a4,4 0 0 1 4,4v58a4,4 0 0 1 -4,4h-36a4,4 0 0 1 -4,-4v-58a4,4 0 0 1 4,-4z" />
 
-    <!-- 内框：1999 的压印双线，只留一层，第二层在这个尺寸会糊 -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#B9AE97"
-        android:strokeWidth="0.8"
-        android:pathData="M37.5,28h33a2,2 0 0 1 2,2v48a2,2 0 0 1 -2,2h-33a2,2 0 0 1 -2,-2v-48a2,2 0 0 1 2,-2z" />
-
-    <!-- 小丑帽：帽尖的球 + 向右侧软塌下来的帽身 + 帽檐。
-         直线三角会读成"圣诞树"，所以帽身用一段三次曲线把尖拉弯。 -->
+    <!-- 帽尖球：红色，坐在帽身尖上 -->
     <path
         android:fillColor="#C9604F"
-        android:pathData="M54,35m-2.9,0a2.9,2.9 0 1,0 5.8,0a2.9,2.9 0 1,0 -5.8,0" />
-    <path
-        android:fillColor="#241E18"
-        android:pathData="M54,37.8 C58.5,44 67.5,50.5 68.5,60 L42,60 Z" />
-    <path
-        android:fillColor="#241E18"
-        android:pathData="M39,60h30a1.7,1.7 0 0 1 0,3.4h-30a1.7,1.7 0 0 1 0,-3.4z" />
+        android:pathData="M54,28m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0" />
 
-    <!-- 帽檐下的一条分隔线：牌面下半部否则是一块空白，缩小后像张空白卡 -->
+    <!-- 帽身：黑色软帽，三次曲线把尖向右拉弯（直线三角会读成"圣诞树"） -->
     <path
-        android:fillColor="#B9AE97"
-        android:pathData="M47,72h14v1.2h-14z" />
+        android:fillColor="#241E18"
+        android:pathData="M54,31 C58,37 66.5,43 67.5,51 L40.5,51 Z" />
+
+    <!-- 帽檐：把帽子和脸盘分隔开，没有它帽子会读成"头发" -->
+    <path
+        android:fillColor="#241E18"
+        android:pathData="M39,51h30a1.7,1.7 0 0 1 0,3.4h-30a1.7,1.7 0 0 1 0,-3.4z" />
+
+    <!-- 双眼：两个黑色大色块，间距拉开一点才像"眼睛"而不是"两个点" -->
+    <path
+        android:fillColor="#241E18"
+        android:pathData="M49,62m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path
+        android:fillColor="#241E18"
+        android:pathData="M59,62m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+
+    <!-- 红鼻：Joker 的标志 -->
+    <path
+        android:fillColor="#C9604F"
+        android:pathData="M54,68m-2.8,0a2.8,2.8 0 1,0 5.6,0a2.8,2.8 0 1,0 -5.6,0" />
+
+    <!-- 微笑弧线：向下弯，比直线更有"笑面小丑"的味道 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#241E18"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M48,73.5 Q54,78.5 60,73.5" />
 </vector>
