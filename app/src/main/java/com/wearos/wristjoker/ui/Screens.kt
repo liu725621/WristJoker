@@ -56,7 +56,7 @@ import com.wearos.wristjoker.game.Voucher
 
 private val MENU = roundLayout(
     CircleFit.Band(24f, 2f),   // 0 牌背
-    CircleFit.Band(22f, 1f),   // 1 标题
+    CircleFit.Band(30f, 2f),   // 1 标题（21sp 衬线 + 立体阴影需要 ~28dp，22dp 会裁切上下笔画）
     CircleFit.Band(9f, 2f),    // 2 JOKER
     CircleFit.Band(11f, 3f),   // 3 存档 / 最佳记录
     CircleFit.Band(26f, 3f),   // 4 主按钮
@@ -112,7 +112,7 @@ fun MenuScreen(
                 text = "腕上小丑",
                 color = Pal.Cream,
                 depthColor = Pal.Ink700,
-                style = Type.Title.copy(fontSize = 21.sp, letterSpacing = 2.4.sp),
+                style = Type.Title.copy(fontSize = 20.sp, letterSpacing = 2.4.sp),
             )
         }
         BandGap(L.gap[1])

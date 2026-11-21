@@ -478,7 +478,7 @@ def paste_card(img, ccx, ccy, cw, ch, rank, suit, enh=None, seal=None,
 def screen_menu(img):
     d = ImageDraw.Draw(img)
     rows, _ = layout_bands([
-        ("back", 24, 2), ("title", 22, 1), ("pixel", 9, 2),
+        ("back", 24, 2), ("title", 30, 2), ("pixel", 9, 2),
         ("hint", 11, 3), ("btn", 26, 3), ("pair", 22, 3), ("long", 20, 2),
         ("tools", 20, 0),
     ])
@@ -487,8 +487,8 @@ def screen_menu(img):
         if name == "back":
             draw_cardback(d, cx, cy, 22, 30)
         elif name == "title":
-            text(d, cx + 1, cy + 1, "腕上小丑", 21, INK700, bold=True)
-            text(d, cx, cy, "腕上小丑", 21, CREAM, bold=True)
+            text(d, cx + 1, cy + 1, "腕上小丑", 20, INK700, bold=True)
+            text(d, cx, cy, "腕上小丑", 20, CREAM, bold=True)
         elif name == "pixel":
             text(d, cx, cy, "J O K E R", 7.5, AMBER)
         elif name == "hint":
@@ -1182,7 +1182,7 @@ def screen_runinfo(img):
 def screen_career(img):
     """生涯统计：3 × 4 十二格。"""
     d = ImageDraw.Draw(img)
-    rows, _ = layout_bands([("head", 11, 2), ("grid", 74, 2), ("back", 20, 0)])
+    rows, _ = layout_bands([("head", 11, 2), ("grid", 80, 2), ("back", 20, 0)])
     cells = [
         ("7", "\u901a\u5173", GREEN), ("8", "\u6700\u9ad8\u5e95\u6ce8", MONEY), ("3", "\u6700\u957f\u8fde\u80dc", GOLD),
         ("248K", "\u5355\u5c40\u6700\u9ad8", CREAM), ("12,480", "\u5355\u624b\u6307\u6700\u9ad8", CHIP), ("$52", "\u6700\u9ad8\u6301\u5e01", MONEY),
@@ -1197,11 +1197,11 @@ def screen_career(img):
         elif name == "grid":
             for i, (v, l, col) in enumerate(cells):
                 gx = cx + px(w) * ((i % 3) - 1) / 3
-                gy = cy - px(h) / 2 + px(9) + px(18) * (i // 3)
-                # 数字偏上、标签偏下：9sp 与 5.5sp 两个字形挤在 18dp 里，
-                # 中心对中心必然压字，所以各自让开 2dp。
-                text(d, gx, gy - px(2), v, 9, col, bold=True)
-                text(d, gx, gy + px(5), l, 5.5, DIM)
+                gy = cy - px(h) / 2 + px(10) + px(20) * (i // 3)
+                # 数字偏上、标签偏下：10sp 与 6sp 挤在 20dp 行高里，
+                # 中心对中心必然压字，所以各自让开。
+                text(d, gx, gy - px(2.5), v, 10, col, bold=True)
+                text(d, gx, gy + px(5.5), l, 6, DIM)
         elif name == "back":
             draw_button(d, cx, cy, w * 0.5, 20, "\u8fd4\u56de", CHIP, filled=False)
 
@@ -1226,14 +1226,14 @@ def screen_ach(img):
             text(d, cx + px(w) / 2, cy, "4/20", 6.5, MONEY, anchor="rm")
         elif name == "list":
             y0 = cy - px(h) / 2 + px(1)
-            # 视口 76dp 只放得下 4 项半；真实界面可滚动，预览只画放得下的部分
+            # 视口 76dp 只放得下 4 项；真实界面可滚动，预览只画放得下的部分
             for i, (t, desc, got, col) in enumerate(items[:4]):
-                ry = y0 + px(8) + px(17) * i
+                ry = y0 + px(8.5) + px(19) * i
                 rrect(d, cx - px(w) / 2 + px(2.5), ry, 5, 5, 1,
                       fill=col if got else (58, 51, 42))
-                text(d, cx - px(w) / 2 + px(8), ry - px(3), t, 7.5,
+                text(d, cx - px(w) / 2 + px(8), ry - px(3.5), t, 8,
                      CREAM if got else DIM, anchor="lm", bold=got)
-                text(d, cx - px(w) / 2 + px(8), ry + px(4), desc, 5.5,
+                text(d, cx - px(w) / 2 + px(8), ry + px(4.5), desc, 6,
                      DIM if got else (120, 112, 96), anchor="lm")
         elif name == "back":
             draw_button(d, cx, cy, w * 0.5, 20, "\u8fd4\u56de", CHIP, filled=False)

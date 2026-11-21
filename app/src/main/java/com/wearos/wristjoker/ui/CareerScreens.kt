@@ -48,25 +48,24 @@ import java.util.Locale
 
 private val CAREER_BANDS = roundLayout(
     CircleFit.Band(11f, 2f),   // 0 标题
-    CircleFit.Band(74f, 2f),   // 1 十二格
+    CircleFit.Band(80f, 2f),   // 1 十二格（4 行 × 20dp，给 10sp 数字留足行高）
     CircleFit.Band(20f, 0f),   // 2 返回
 )
 
 /** 一格：上面数字，下面标签。 */
 @Composable
 private fun StatCell(value: String, label: String, accent: androidx.compose.ui.graphics.Color) {
-    // 17dp 而不是 22dp：外层 Row 只有 18dp，超出的部分会被裁掉上半截。
-    // 数字 9sp + 标签 5.5sp 是这一格里能同时保住可读与不重叠的上限。
+    // 19dp 高：数字 10sp + 标签 6sp 在手表圆屏上仍能一眼读清，且不重叠。
     Column(
-        Modifier.fillMaxWidth().height(17.dp),
+        Modifier.fillMaxWidth().height(19.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         T(
             value,
-            Type.Medium.copy(color = accent, fontSize = 9.sp),
+            Type.Medium.copy(color = accent, fontSize = 10.sp),
         )
-        T(label, Type.Tiny.copy(fontSize = 5.5.sp))
+        T(label, Type.Tiny.copy(fontSize = 6.sp))
     }
 }
 
@@ -101,7 +100,7 @@ fun CareerScreen(stats: CareerStats, onBack: () -> Unit) {
                 ),
             )
             rows.forEach { row ->
-                Row(Modifier.fillMaxWidth().height(18.dp)) {
+                Row(Modifier.fillMaxWidth().height(20.dp)) {
                     row.forEach { c -> Box(Modifier.weight(1f)) { c } }
                 }
             }
@@ -155,7 +154,7 @@ fun AchievementsScreen(earned: Set<String>, onBack: () -> Unit) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .height(17.dp)
+                        .height(19.dp)
                         .padding(vertical = 1.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -172,7 +171,7 @@ fun AchievementsScreen(earned: Set<String>, onBack: () -> Unit) {
                         T(
                             a.title,
                             Type.Body.copy(
-                                fontSize = 7.5.sp,
+                                fontSize = 8.sp,
                                 color = if (got) Pal.Cream else Pal.Dim.copy(alpha = .75f),
                                 fontWeight = if (got) FontWeight.Bold else FontWeight.Normal,
                             ),
@@ -180,7 +179,7 @@ fun AchievementsScreen(earned: Set<String>, onBack: () -> Unit) {
                         T(
                             a.desc,
                             Type.Tiny.copy(
-                                fontSize = 5.5.sp,
+                                fontSize = 6.sp,
                                 color = if (got) Pal.Dim else Pal.Dim.copy(alpha = .5f),
                             ),
                         )

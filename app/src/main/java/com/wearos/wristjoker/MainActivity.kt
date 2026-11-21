@@ -517,7 +517,7 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Pal.Bg.copy(alpha = .97f)),
+                    .background(Pal.Bg),
             ) {
                 when (overlay) {
                     Overlay.COLLECTION -> CollectionScreen(
