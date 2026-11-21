@@ -1267,6 +1267,18 @@ def screen_seed(img):
             draw_button(d, cx + px(56), cy, 40, 20, "\u8fd4\u56de", DIM, filled=False)
 
 
+def screen_aod(img):
+    """AOD 常显层：纯黑底 + 分数 / 目标 / 剩余出牌（低功耗单色）。"""
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, W, W], fill=(0, 0, 0))
+    cx = W / 2
+    cy = W / 2 + px(6)
+    text(d, cx, cy - px(30), "\u7b2c 3 \u5173 \u00b7 \u5c0f\u76f2\u6ce8", 7, (138, 133, 120))
+    text(d, cx, cy - px(2), "12,480", 34, (232, 225, 209), bold=True)
+    text(d, cx, cy + px(26), "\u76ee\u6807 45,000", 8, (138, 133, 120))
+    text(d, cx, cy + px(42), "\u51fa\u724c 4 \u00b7 \u5f03\u724c 3", 8, (138, 133, 120))
+
+
 
 SCREENS = [
     ("menu", "开始界面", screen_menu),
@@ -1287,6 +1299,7 @@ SCREENS = [
     ("career", "生涯·十二格统计", screen_career),
     ("ach", "成就·20 条", screen_ach),
     ("seed", "种子·六位可调", screen_seed),
+    ("aod", "AOD 常显·熄屏低功耗", screen_aod),
 ]
 
 

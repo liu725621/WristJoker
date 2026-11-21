@@ -1,13 +1,14 @@
 package com.wearos.wristjoker
 
 import android.os.Bundle
-import android.view.WindowManager
+import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -31,6 +32,7 @@ import com.wearos.wristjoker.ui.BlindSelectScreen
 import com.wearos.wristjoker.ui.CareerScreen
 import com.wearos.wristjoker.ui.AchBanner
 import com.wearos.wristjoker.ui.AchievementsScreen
+import com.wearos.wristjoker.ui.AodOverlay
 import com.wearos.wristjoker.ui.SeedScreen
 import com.wearos.wristjoker.ui.CashOutScreen
 import com.wearos.wristjoker.ui.ChallengeScreen
@@ -68,15 +70,35 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var store: SaveStore
     private lateinit var engine: GameEngine
+    /** 是否处于熄屏常亮（ambient）态，AOD 层据此切换。 */
+    private val isAmbient = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 一局可能打十几分钟，中途息屏会让玩家丢掉节奏
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         Sfx.init(this)
         Haptics.init(this)
         Music.init(this)
+
+        // AOD 常亮：接入 ambient 生命周期。熄屏后进入低功耗常显（只留关键数字），
+        // 抬腕即恢复完整界面。不再用 FLAG_KEEP_SCREEN_ON 锁屏 —— 那会让屏幕
+        // 永不进入 ambient，AOD 无从谈起；游戏期间防熄屏交给 tilt-to-wake + ambient。
+        val ambientObserver = AmbientLifecycleObserver(
+            this,
+            object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+                override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+                    isAmbient.value = true
+                    // 熄屏后停掉音乐，省电也避免黑屏下还出声
+                    Music.setActive(false)
+                }
+
+                override fun onExitAmbient() {
+                    isAmbient.value = false
+                    Music.setActive(true)
+                }
+            },
+        )
+        lifecycle.addObserver(ambientObserver)
 
         store = SaveStore(this)
         engine = GameEngine()
@@ -84,7 +106,7 @@ class MainActivity : ComponentActivity() {
         val restored = store.restore(engine)
         engine.hasSave = restored
 
-        setContent { WristJokerApp(engine, store) }
+        setContent { WristJokerApp(engine, store, isAmbient) }
     }
 
     override fun onStart() {
@@ -118,9 +140,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WristJokerApp(engine: GameEngine, store: SaveStore) {
+fun WristJokerApp(engine: GameEngine, store: SaveStore, isAmbient: State<Boolean>) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var ui by remember { mutableStateOf(engine.snapshot()) }
+    val ambient by isAmbient
     /** 0 = 关，1 = 小丑页，2 = 消耗品页，3 = 等级页，4 = 券与标签页 */
     var panel by remember { mutableIntStateOf(0) }
     /** 详情页：非空时盖住当前界面。 */
@@ -624,6 +647,12 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 AchBanner(a)
             }
+        }
+
+        // AOD 常显层：熄屏后盖住一切（含 CRT 与横幅），只留关键数字，
+        // 最小化 OLED 发光像素。它是 ambient 态唯一的界面。
+        if (ambient) {
+            AodOverlay(ui)
         }
     }
 }

@@ -15,8 +15,8 @@ android {
         // targetSdk 对齐真机 34，避免在 Wear OS 5 上走未验证的新行为。
         minSdk = 30
         targetSdk = 34
-        versionCode = 13
-        versionName = "1.12-watch"
+        versionCode = 14
+        versionName = "1.13-watch"
     }
 
     buildTypes {
@@ -57,6 +57,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.wear.compose:compose-material3:1.5.0")
     implementation("androidx.wear.compose:compose-foundation:1.5.0")
+
+    // AOD 常亮（ambient mode）：AmbientLifecycleObserver 在 wear 主库里。
+    // 不用 ambient 独立依赖 —— 1.3.0 起 ambient 已并入 androidx.wear:wear。
+    implementation("androidx.wear:wear:1.4.0")
 
     // 手表「卡片」（三星叫卡片，Wear OS 叫 Tile）。不引 tiles-material：
     // 卡片只有一块 192×192 的圆屏，手写 protolayout 反而比套组件更好控比例。
