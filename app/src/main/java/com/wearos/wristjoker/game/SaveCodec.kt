@@ -50,7 +50,7 @@ object SaveCodec {
         append("disc|").append(s.discardPile.joinToString(",")).append('\n')
         append("hand|").append(s.hand.joinToString(",")).append('\n')
         append("jokers|").append(
-            s.jokers.joinToString(",") { "${it.id}:${it.edition.ordinal}:${it.bonusValue}" }
+            s.jokers.joinToString(",") { "${it.id}:${it.edition.ordinal}:${it.bonusValue}:${it.growthMult}" }
         ).append('\n')
         append("cons|").append(s.consumables.joinToString(",")).append('\n')
         append("levels|").append(
@@ -92,6 +92,10 @@ object SaveCodec {
         append("msg|").append(s.message.replace('\n', ' ')).append('\n')
         // v2 内追加（不升版本号）：旧档没这行，解码时补 0，卡片回退到"只显示分数"。
         append("tgt|").append(s.target).append('\n')
+        // 有状态小丑（方尖石塔 / 全息影像 / 古老小丑）的跨局状态
+        append("obx|").append(s.obeliskXMult).append('\n')
+        append("cad|").append(s.cardsAddedToDeck).append('\n')
+        append("anc|").append(s.ancientSuit?.name ?: "").append('\n')
     }
 
     /**
@@ -263,6 +267,9 @@ object SaveCodec {
                 .mapNotNull { it.trim().toIntOrNull() },
             packReturn = enumOr(map["packr"], Phase.SHOP),
             target = map["tgt"]?.toLongOrNull() ?: 0,
+            obeliskXMult = map["obx"]?.toDoubleOrNull() ?: 1.0,
+            cardsAddedToDeck = map["cad"]?.toIntOrNull() ?: 0,
+            ancientSuit = map["anc"]?.let { n -> Suit.entries.firstOrNull { it.name == n } },
         )
     }
 
@@ -289,7 +296,8 @@ object SaveCodec {
         val def = Jokers.get(p[0]) ?: return null
         val ed = Edition.entries.getOrNull(p.getOrNull(1)?.toIntOrNull() ?: 0) ?: Edition.BASE
         val bonus = p.getOrNull(2)?.toIntOrNull() ?: 0
-        return JokerInst(def, ed, bonus)
+        val growth = p.getOrNull(3)?.toIntOrNull() ?: 0
+        return JokerInst(def, ed, bonus, growth)
     }
 
     private fun decodePack(seg: String): PackContent? {

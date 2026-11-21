@@ -35,6 +35,7 @@ class SaveCodecTest {
             jokers = listOf(
                 JokerInst(Jokers.get("joker")!!, Edition.FOIL),
                 JokerInst(Jokers.get("baron")!!),
+                JokerInst(Jokers.get("ceremonial")!!, growthMult = 9),
             ),
             consumables = listOf("p_pair", "t_hermit"),
             levels = mapOf(HandType.PAIR to 3, HandType.FLUSH to 2),
@@ -66,6 +67,9 @@ class SaveCodecTest {
             endless = false,
             message = "凑够 5000 分",
             target = 5000,
+            obeliskXMult = 2.4,
+            cardsAddedToDeck = 6,
+            ancientSuit = Suit.CLUB,
         )
     }
 
@@ -105,6 +109,10 @@ class SaveCodecTest {
         assertEquals(s.message, back.message)
         // 卡片（Tile）靠这一行显示进度：旧档缺它时解码为 0，卡片会退化成只显示分数
         assertEquals(s.target, back.target)
+        // 有状态小丑的跨局状态（方尖石塔 / 全息影像 / 古老小丑 / 仪式匕首成长值）
+        assertEquals(s.obeliskXMult, back.obeliskXMult, 0.001)
+        assertEquals(s.cardsAddedToDeck, back.cardsAddedToDeck)
+        assertEquals(s.ancientSuit, back.ancientSuit)
     }
 
     @Test

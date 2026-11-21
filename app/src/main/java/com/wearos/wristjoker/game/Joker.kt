@@ -83,6 +83,16 @@ data class ScoreContext(
     val handSize: Int = 8,
     /** 本关是否是 Boss（斗牛士）。 */
     val bossBlind: Boolean = false,
+    /** 本局各牌型累计打出的次数（不含本次，超新星在此基础 +1）。 */
+    val handsPlayedCount: Map<HandType, Int> = emptyMap(),
+    /** 本回合「古老小丑」选中的花色；回合开始随机，不与上一回合相同。 */
+    val ancientSuit: Suit? = null,
+    /** 「方尖石塔」的当前乘算倍率（本局级，随出牌成长或重置）。 */
+    val obeliskXMult: Double = 1.0,
+    /** 本局累计添加进牌堆的牌张数（全息影像按此成长）。 */
+    val cardsAddedToDeck: Int = 0,
+    /** 当前正在结算的小丑实例（有状态小丑读取自己的成长值）。 */
+    val currentJoker: JokerInst? = null,
     /** 概率类小丑要用的随机源；预览时传固定种子，保证"看一眼"不改结果。 */
     val random: kotlin.random.Random = kotlin.random.Random(0),
 )
@@ -137,6 +147,8 @@ data class JokerInst(
     val edition: Edition = Edition.BASE,
     /** 会成长的售价（蛋这类）。 */
     val bonusValue: Int = 0,
+    /** 有状态小丑的永久加算倍率（仪式匕首吞掉的小丑售价 ×2）。 */
+    val growthMult: Int = 0,
 ) {
     val id: String get() = def.id
     val name: String get() = def.name
@@ -219,8 +231,8 @@ object Jokers {
             addMult = { ctx -> ctx.scoring.count { it.rank.order in 2..10 && it.rank.order % 2 == 0 } * 4 }),
         joker("odd", "奇数托德", "奇数 +31 筹码", Rarity.COMMON, 4,
             chips = { ctx -> ctx.scoring.count { it.rank.order <= 10 && it.rank.order % 2 == 1 } * 31 }),
-        joker("supernova", "超新星", "每出过该牌型 +1 倍率", Rarity.COMMON, 5,
-            addMult = { it.level * 4 }),
+        joker("supernova", "超新星", "该牌型本局打出次数 +倍率", Rarity.COMMON, 5,
+            addMult = { ctx -> (ctx.handsPlayedCount[ctx.handType] ?: 0) + 1 }),
         joker("icecream", "冰淇淋", "起步 +100 筹码，每手 -5", Rarity.COMMON, 5,
             chips = { (100 - it.handsPlayed * 5).coerceAtLeast(0) }),
         joker("runner", "跑步选手", "顺子每张 +15 筹码", Rarity.COMMON, 5,
@@ -311,8 +323,8 @@ object Jokers {
         // ================= 乘算爆发 =================
         joker("photograph", "照片", "首张人头牌 ×2", Rarity.COMMON, 5,
             xMult = { ctx -> if (ctx.scoring.any { it.rank.order >= 11 }) 2.0 else 1.0 }),
-        joker("obelisk", "方尖石塔", "高阶牌型 ×2", Rarity.RARE, 8,
-            xMult = { if (it.handType.ordinal >= HandType.FLUSH.ordinal) 2.0 else 1.0 }),
+        joker("obelisk", "方尖石塔", "出非最常牌型 ×0.2，失败重置", Rarity.RARE, 8,
+            xMult = { ctx -> ctx.obeliskXMult }),
         joker("baseball", "棒球卡", "每张罕见小丑 ×1.5", Rarity.RARE, 8,
             xMult = { ctx ->
                 var m = 1.0
@@ -423,14 +435,22 @@ object Jokers {
             money = { ctx ->
                 ctx.scoring.count { it.rank == Rank.EIGHT && ctx.random.nextInt(4) == 0 } * 3
             }),
-        joker("ancient", "古老小丑", "每种花色 ×1.5", Rarity.RARE, 8,
-            xMult = { ctx -> 1.0 + 0.5 * ctx.scoring.map { it.suit }.distinct().size }),
+        joker("ancient", "古老小丑", "本回合随机花色 ×1.5/张", Rarity.RARE, 8,
+            xMult = { ctx ->
+                val s = ctx.ancientSuit
+                if (s == null) 1.0 else {
+                    val n = ctx.scoring.count { it.suit == s }
+                    var m = 1.0
+                    repeat(n) { m *= 1.5 }
+                    m
+                }
+            }),
         joker("campfire", "篝火", "每卖 1 小丑 ×0.25", Rarity.RARE, 9,
             xMult = { 1.0 + it.jokersSold * 0.25 }),
         joker("constellation", "星座", "每张行星 ×0.1", Rarity.UNCOMMON, 6,
             xMult = { 1.0 + it.planetsUsed * 0.1 }),
-        joker("hologram", "全息影像", "每买 1 小丑 ×0.25", Rarity.UNCOMMON, 7,
-            xMult = { 1.0 + it.jokersBought * 0.25 }),
+        joker("hologram", "全息影像", "每加 1 张牌 ×0.25", Rarity.UNCOMMON, 7,
+            xMult = { 1.0 + it.cardsAddedToDeck * 0.25 }),
         joker("glassjoker", "玻璃小丑", "每碎 1 玻璃 ×0.75", Rarity.UNCOMMON, 6,
             xMult = { 1.0 + it.glassShattered * 0.75 }),
         joker("flowerpot", "花盆", "四花色齐 ×3", Rarity.UNCOMMON, 6,
@@ -462,7 +482,8 @@ object Jokers {
             money = { if (it.bossBlind) 8 else 0 }),
         joker("mrBones", "骨头先生", "本局免死一次", Rarity.UNCOMMON, 8),
         joker("luchador", "摔跤手", "卖出时废掉 Boss", Rarity.UNCOMMON, 5),
-        joker("ceremonial", "仪式匕首", "卖出时吞掉左侧小丑", Rarity.UNCOMMON, 6),
+        joker("ceremonial", "仪式匕首", "选盲注吞右侧，售价 ×2 入倍率", Rarity.UNCOMMON, 6,
+            addMult = { ctx -> ctx.currentJoker?.growthMult ?: 0 }),
         joker("madness", "疯狂", "每关 ×0.5 累加", Rarity.UNCOMMON, 7,
             xMult = { 1.0 + (it.ante - 1) * 0.5 }),
         joker("vampire", "吸血鬼", "每关 ×0.1 累加", Rarity.UNCOMMON, 7,

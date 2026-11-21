@@ -91,15 +91,16 @@ object Scoring {
     private fun resolveEffect(
         i: Int,
         jokers: List<JokerInst>,
-    ): JokerEffect? {
+    ): Pair<JokerEffect, JokerInst>? {
         var idx = i
         var guard = 0
         while (guard++ < 12) {
-            val e = jokers.getOrNull(idx)?.def?.effect ?: return null
+            val j = jokers.getOrNull(idx) ?: return null
+            val e = j.def.effect
             when {
                 e.copiesRight -> idx += 1
                 e.copiesLeft -> idx = 0
-                else -> return e
+                else -> return e to j
             }
         }
         return null
@@ -150,6 +151,14 @@ object Scoring {
         deckSize: Int = 52,
         handSize: Int = 8,
         bossBlind: Boolean = false,
+        /** 本局各牌型累计打出次数（不含本次，超新星）。 */
+        handsPlayedCount: Map<HandType, Int> = emptyMap(),
+        /** 本回合古老小丑选中的花色。 */
+        ancientSuit: Suit? = null,
+        /** 方尖石塔当前乘算倍率。 */
+        obeliskXMult: Double = 1.0,
+        /** 本局累计添加进牌堆的牌张数（全息影像）。 */
+        cardsAddedToDeck: Int = 0,
         /** 「四指」：同花 / 顺子只需 4 张。 */
         fourFingers: Boolean = false,
         /** 「捷径」：顺子可隔一档。 */
@@ -297,6 +306,10 @@ object Scoring {
             deckSize = deckSize,
             handSize = handSize,
             bossBlind = bossBlind,
+            handsPlayedCount = handsPlayedCount,
+            ancientSuit = ancientSuit,
+            obeliskXMult = obeliskXMult,
+            cardsAddedToDeck = cardsAddedToDeck,
             random = random,
         )
         var jokerChips = 0
@@ -313,12 +326,14 @@ object Scoring {
                 )
                 return@forEachIndexed
             }
-            val effect = resolveEffect(index, jokers) ?: return@forEachIndexed
+            val resolved = resolveEffect(index, jokers) ?: return@forEachIndexed
+            val effect = resolved.first
+            val jctx = ctx.copy(currentJoker = resolved.second)
             val scale = if (amber) 0.5 else 1.0
-            val c = (effect.chips(ctx) * scale).toInt()
-            val a = (effect.addMult(ctx) * scale).toInt()
-            val x = if (amber) 1.0 + (effect.xMult(ctx) - 1.0) * 0.5 else effect.xMult(ctx)
-            val m = effect.money(ctx)
+            val c = (effect.chips(jctx) * scale).toInt()
+            val a = (effect.addMult(jctx) * scale).toInt()
+            val x = if (amber) 1.0 + (effect.xMult(jctx) - 1.0) * 0.5 else effect.xMult(jctx)
+            val m = effect.money(jctx)
             if (c != 0) { chips += c; jokerChips += c }
             if (a != 0) { mult += a; jokerAddMult += a }
             if (x != 1.0) { mult *= x; xMult *= x }

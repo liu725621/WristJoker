@@ -291,6 +291,12 @@ data class RunState(
      * 所以直接把结果存进来，卡片只负责显示。旧档缺这一行时回退为 0。
      */
     val target: Long = 0,
+    /** 方尖石塔当前乘算倍率。 */
+    val obeliskXMult: Double = 1.0,
+    /** 本局累计添加进牌堆的牌张数（全息影像）。 */
+    val cardsAddedToDeck: Int = 0,
+    /** 古老小丑本回合选中的花色。 */
+    val ancientSuit: Suit? = null,
 )
 
 /**
@@ -406,6 +412,12 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
     private var jokersSold = 0
     /** 累计碎掉的玻璃牌（玻璃小丑）。 */
     private var glassShattered = 0
+    /** 本局累计添加进牌堆的牌张数（全息影像）。 */
+    private var cardsAddedToDeck = 0
+    /** 方尖石塔当前乘算倍率（本局级，出非最常牌型 +0.2，否则重置 1）。 */
+    private var obeliskXMult = 1.0
+    /** 古老小丑本回合选中的花色。 */
+    private var ancientSuit: Suit = Suit.SPADE
     /** 「骨头先生」这一局是否已经用掉免死。 */
     private var bonesSaved = false
 
@@ -861,6 +873,10 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
             deckSize = master.size,
             handSize = handSize,
             bossBlind = spec.kind == BlindKind.BOSS,
+            handsPlayedCount = typeCount.toMap(),
+            ancientSuit = ancientSuit,
+            obeliskXMult = obeliskXMult,
+            cardsAddedToDeck = cardsAddedToDeck,
             fourFingers = jokers.any { it.id == "fourfingers" },
             shortcut = jokers.any { it.id == "shortcut" },
             smeared = jokers.any { it.id == "smeared" },
@@ -891,6 +907,11 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         playedTypes += result.handType
         lastHandType = result.handType
         typeCount[result.handType] = (typeCount[result.handType] ?: 0) + 1
+        // 方尖石塔：打出「唯一最常牌型」时重置为 1，否则 ×0.2 累加
+        val myCount = typeCount[result.handType] ?: 0
+        val maxOther = typeCount.entries.filter { it.key != result.handType }
+            .maxOfOrNull { it.value } ?: -1
+        obeliskXMult = if (myCount > maxOther) 1.0 else obeliskXMult + 0.2
         if (result.total > bestHand) bestHand = result.total
         lastResult = result
         lastPlayed = played
@@ -933,6 +954,7 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
             val id = nextCardId()
             master[id] = src.copy(id = id)
             hand.add(id)
+            cardsAddedToDeck++
         }
 
         // 玻璃碎裂：从牌堆彻底移除
@@ -1126,6 +1148,7 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
                 drawPile.add(id)
             }
             drawPile.shuffle(random)
+            cardsAddedToDeck += res.spawnCards.size
         }
         if (res.convertHandSuit) {
             val s = Suit.entries[random.nextInt(Suit.entries.size)]
@@ -1552,6 +1575,7 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
                 master[c.card.id] = c.card
                 drawPile.add(c.card.id)
                 drawPile.shuffle(random)
+                cardsAddedToDeck++
             }
             is PackContent.Joker -> {
                 if (jokers.size < maxJokers) jokers += JokerInst(c.def, c.edition)
@@ -1597,6 +1621,10 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
             deckSize = master.size,
             handSize = handSize,
             bossBlind = spec.kind == BlindKind.BOSS,
+            handsPlayedCount = typeCount.toMap(),
+            ancientSuit = ancientSuit,
+            obeliskXMult = obeliskXMult,
+            cardsAddedToDeck = cardsAddedToDeck,
             fourFingers = jokers.any { it.id == "fourfingers" },
             shortcut = jokers.any { it.id == "shortcut" },
             smeared = jokers.any { it.id == "smeared" },
@@ -1618,6 +1646,18 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         // 「希科」：Boss 效果直接失效。放在这里而不是各处副作用里，
         // 是因为所有 Boss 判定都读 spec.modifier，一处生效就不会漏。
         if (jokers.any { it.id == "chicot" }) spec = spec.copy(modifier = BossModifier.NONE)
+        // 古老小丑：每回合换一种需求花色（不与上一回合相同）
+        ancientSuit = Suit.entries.filter { it != ancientSuit }[random.nextInt(3)]
+        // 仪式匕首：选择盲注时摧毁右侧小丑，售价 ×2 永久入倍率
+        var ci = 0
+        while (ci < jokers.size) {
+            val inst = jokers[ci]
+            if (inst.id == "ceremonial" && ci + 1 < jokers.size) {
+                val sliced = jokers.removeAt(ci + 1)
+                jokers[ci] = inst.copy(growthMult = inst.growthMult + sliced.sellPrice * 2)
+            }
+            ci++
+        }
         playedTypes.clear()
         lastHandType = null
         pillarHistory.clear()
@@ -1645,6 +1685,7 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
                     Suit.entries[random.nextInt(Suit.entries.size)],
                     Enhancement.STONE,
                 )
+                cardsAddedToDeck++
             }
             if (jokers.any { it.id == "certificate" }) {
                 val id = nextCardId()
@@ -1655,6 +1696,7 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
                     Suit.entries[random.nextInt(Suit.entries.size)],
                     seal = seals[random.nextInt(seals.size)],
                 )
+                cardsAddedToDeck++
             }
         }
         drawPile = master.keys.shuffled(random).toMutableList()
@@ -1800,6 +1842,9 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         jokersBought = 0
         jokersSold = 0
         glassShattered = 0
+        cardsAddedToDeck = 0
+        obeliskXMult = 1.0
+        ancientSuit = Suit.entries[random.nextInt(Suit.entries.size)]
         bonesSaved = false
         handSizePenalty = 0
         lastHandType = null
@@ -1955,6 +2000,9 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         handSizePenalty = handSizePenalty,
         stake = stake,
         challenge = challenge?.id ?: "",
+        obeliskXMult = obeliskXMult,
+        cardsAddedToDeck = cardsAddedToDeck,
+        ancientSuit = ancientSuit,
         target = spec.target,
     )
 
@@ -2028,6 +2076,9 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         pillarHistory.clear()
         pillarHistory += s.pillarHistory
         verdantCleared = s.verdantCleared
+        obeliskXMult = s.obeliskXMult
+        cardsAddedToDeck = s.cardsAddedToDeck
+        ancientSuit = s.ancientSuit ?: Suit.entries[random.nextInt(Suit.entries.size)]
         disabledJoker = -1
         lastResult = null
         spec = specOf(ante, blindIndex)
