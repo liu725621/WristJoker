@@ -476,7 +476,7 @@ fun GameScreen(
                     accent = Pal.Chip,
                     onClick = onDiscard,
                     modifier = Modifier.weight(1f),
-                    filled = false,
+                    filled = true,
                     height = 20,
                 )
                 CasinoButton(

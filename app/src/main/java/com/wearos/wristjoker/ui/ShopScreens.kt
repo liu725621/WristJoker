@@ -142,7 +142,24 @@ private fun OwnedBar(
             }
         }
         Spacer(Modifier.weight(1f))
-        T("查看 ›", Type.TinyMono.copy(color = Pal.FeltHi, fontSize = 5.5.sp))
+        // 「查看」不再是一行暗字提示，而是一个金色可点的入口：点它等价于
+        // 点第一个已拥有的物品，玩家不用先猜到「前面那些色块其实能点」。
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(2.dp))
+                .clickable {
+                    when {
+                        ui.jokers.isNotEmpty() ->
+                            onOpenDetail(DetailTarget.OwnedJoker(0, ui.jokers[0]))
+                        ui.consumables.isNotEmpty() ->
+                            onOpenDetail(DetailTarget.OwnedConsumable(0, ui.consumables[0]))
+                    }
+                }
+                .padding(horizontal = 3.dp, vertical = 1.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            T("查看 ›", Type.TinyMono.copy(color = Pal.Money, fontSize = 6.sp))
+        }
     }
 }
 

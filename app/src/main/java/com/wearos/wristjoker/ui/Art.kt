@@ -859,7 +859,7 @@ fun CursorCorners(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val w = size.width
         val h = size.height
-        val r = (minOf(w, h) * .14f).coerceIn(1.3f, 4.0.dp.toPx())
+        val r = (minOf(w, h) * .19f).coerceIn(1.6f, 5.0.dp.toPx())
         val inner = r * .26f
         val pad = r * .92f
         fun star(cx: Float, cy: Float) {
@@ -880,6 +880,18 @@ fun CursorCorners(color: Color, modifier: Modifier = Modifier) {
         star(w - pad, pad)
         star(pad, h - pad)
         star(w - pad, h - pad)
+        // 底部中央的实心三角：四角星在重叠扇形里会被邻牌遮住，三角落在
+        // 牌面最下方露出的那截上，是表冠光标最稳的视觉锚点。
+        val ty = h - 1.0.dp.toPx()
+        val th = 2.8.dp.toPx()
+        val tw = 2.4.dp.toPx()
+        val tri = Path().apply {
+            moveTo(w / 2f - tw, ty - th)
+            lineTo(w / 2f + tw, ty - th)
+            lineTo(w / 2f, ty)
+            close()
+        }
+        drawPath(tri, color)
     }
 }
 

@@ -74,7 +74,7 @@ def px(v):
 
 def rrect(d, cx, cy, w, h, r, fill=None, outline=None, width=1):
     box = [cx - px(w) / 2, cy - px(h) / 2, cx + px(w) / 2, cy + px(h) / 2]
-    d.rounded_rectangle(box, radius=px(r), fill=fill, outline=outline, width=1 if outline else width)
+    d.rounded_rectangle(box, radius=px(r), fill=fill, outline=outline, width=width)
 
 
 def text(d, cx, cy, s, size, color, anchor="mm", bold=False):
@@ -129,13 +129,17 @@ def draw_cardface(d, cx, cy, w, h, rank, suit, enh=None, seal=None, edition=None
 
     edge = CARD_EDGE
     if selected:
-        edge = MONEY
+        edge = AMBER
     elif blocked:
         edge = BOSS_RED
     elif scoring:
         edge = CREAM
 
-    rrect(d, cx, cy, w, h, 3, fill=base, outline=edge, width=3 if (selected or scoring) else 2)
+    rrect(d, cx, cy, w, h, 3, fill=base, outline=edge,
+          width=4 if selected else (3 if scoring else 2))
+    if selected:
+        # 选中内发光：向内收缩一圈亮边，重叠扇形里一眼可数选了几张
+        rrect(d, cx, cy, w - 5, h - 5, 2, fill=None, outline=AMBER, width=1)
 
     x0 = cx - px(w) / 2
     y0 = cy - px(h) / 2
@@ -635,7 +639,7 @@ def screen_playing(img):
             text(d, x0 + px(sb) / 2, cy, "点", 7, AMBER)
             bw = (w - sb - 12) / 2
             bx = x0 + px(sb) + px(6)
-            draw_button(d, bx + px(bw) / 2, cy, bw, 20, "弃 2", CHIP, filled=False)
+            draw_button(d, bx + px(bw) / 2, cy, bw, 20, "弃 2", CHIP, filled=True)
             draw_button(d, bx + px(bw) + px(6) + px(bw) / 2, cy, bw, 20, "出 3", MONEY)
 
 
@@ -742,7 +746,7 @@ def screen_shop(img):
             for i in range(2):
                 rrect(d, bx, cy, 6, 6, 1, fill=FELT_DARK, outline=PURPLE, width=1)
                 bx += px(8)
-            text(d, cx + px(w) / 2, cy, "查看 ›", 5.5, FELT_HI, anchor="rm")
+            text(d, cx + px(w) / 2, cy, "查看 ›", 6, MONEY, anchor="rm")
         elif name == "cards":
             label_chip(left + px(5), cy, h, "商")
             tw = (w - 13) / 2

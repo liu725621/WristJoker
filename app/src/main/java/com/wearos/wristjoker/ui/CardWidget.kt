@@ -87,10 +87,15 @@ fun PlayingCard(
     // 比描边更明显，又不改变布局
     val pop by animateFloatAsState(if (scoring) 1.12f else 1f, tween(110), label = "pop")
     val edge = when {
-        selected -> Pal.Money
+        selected -> Pal.Amber400
         blocked -> Pal.BossRed
         scoring -> Pal.Cream
         else -> Pal.CardEdge
+    }
+    val edgeW = when {
+        selected -> 2.dp
+        scoring -> 1.6.dp
+        else -> 1.dp
     }
 
     Box(
@@ -99,7 +104,7 @@ fun PlayingCard(
             .offset(y = lift)
             .clip(shape)
             .background(Pal.CardFace)
-            .border(if (selected || scoring) 1.6.dp else 1.dp, edge, shape)
+            .border(edgeW, edge, shape)
             // 无障碍：牌是纯 Canvas 画的，不声明语义的话 TalkBack 只会读出
             // 一个没有名字的按钮。花色 + 点数 + 状态一次说完，选中与否
             // 走 stateDescription（读屏器在切换时会念"已选中 / 未选中"）。
@@ -134,6 +139,16 @@ fun PlayingCard(
                 )
             }
         }
+        if (selected) {
+            // 选中高亮：琥珀内发光。手牌是重叠扇形，仅靠描边在邻牌叠压下
+            // 仍可能被遮，加一圈向内收缩的亮边，让「选了几张」一眼可数。
+            Canvas(Modifier.fillMaxSize()) {
+                drawRect(
+                    Pal.Amber400.copy(alpha = .32f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.6.dp.toPx()),
+                )
+            }
+        }
         if (scoring) {
             // 结算高亮：一圈半透明金色内发光
             Canvas(Modifier.fillMaxSize()) {
@@ -143,7 +158,7 @@ fun PlayingCard(
                 )
             }
         }
-        if (cursor) CursorCorners(Pal.Money, Modifier.fillMaxSize())
+        if (cursor) CursorCorners(Pal.Amber400, Modifier.fillMaxSize())
     }
 }
 
