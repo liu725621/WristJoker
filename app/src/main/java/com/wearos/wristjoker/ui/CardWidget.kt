@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import com.wearos.wristjoker.game.Card
 
@@ -61,7 +64,12 @@ fun PlayingCard(
     selected: Boolean,
     blocked: Boolean,
     scoring: Boolean,
-    onClick: () -> Unit,
+    /**
+     * 点按回调。传 null 表示"这张牌自己不接手势"——
+     * 手牌扇形用的是整条带子上的最近中心判定，卡片再挂 clickable
+     * 会在 up 时消费事件，把容器的 tap 抢掉。
+     */
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     /** 表冠光标。 */
     cursor: Boolean = false,
@@ -85,7 +93,7 @@ fun PlayingCard(
             .clip(shape)
             .background(Pal.CardFace)
             .border(if (selected || scoring) 1.6.dp else 1.dp, edge, shape)
-            .clickable(onClick = onClick),
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         CardFaceArt(card, Modifier.fillMaxSize())
 
@@ -197,18 +205,52 @@ fun HandFan(
     /** 长按拖动重排：把第 from 张移到第 to 位（原版手牌可拖拽）。 */
     onMove: (Int, Int) -> Unit = { _, _ -> },
 ) {
-    Box(modifier, contentAlignment = Alignment.Center) {
+    // 摊开参数必须在 Box 之外算：点击是按"离哪张牌的中心最近"判定的，
+    // 手势要挂在容器上，而容器的 modifier 在 Box 之前就要就绪。
+    val n = hand.size
+    val revealGeo = if (n <= 1) 0f else minOf(
+        cardWidth * .72f,
+        (maxWidth - cardWidth) / (n - 1),
+    ).coerceAtLeast(6.5f)
+    val spanGeo = revealGeo * (n - 1).coerceAtLeast(0)
+
+    Box(
+        modifier = modifier.pointerInput(hand, revealGeo, spanGeo) {
+            if (n == 0) return@pointerInput
+            // 一张牌时整条带子都是它
+            if (n == 1) {
+                detectTapGestures { onToggle(hand[0].id) }
+                return@pointerInput
+            }
+            // 关键：**不是在每张牌上各挂一个 clickable**。
+            //
+            // 牌是重叠的（25dp 宽、只露 15~18dp），每张牌各自可点意味着
+            // 重叠的那 7~10dp 归最上面那张 —— 点相邻两张的交界处，选中
+            // 哪张取决于绘制顺序，手指又比这个缝宽得多，于是"想选红桃 7，
+            // 选中的是方块 9"。改成整条带子一个手势，按点击位置离哪张牌的
+            // 中心最近来判定：边界正好落在两张牌的正中间，与视觉一致。
+            detectTapGestures { pos ->
+                val half = size.width / 2f
+                val rel = pos.x - half
+                val spanPx = spanGeo.dp.toPx()
+                val revPx = revealGeo.dp.toPx()
+                if (revPx <= 0f) return@detectTapGestures
+                val idx = ((rel + spanPx / 2f) / revPx).roundToInt().coerceIn(0, n - 1)
+                val center = -spanPx / 2f + idx * revPx
+                // 落在最外两张牌的实际牌面之外就不算（点在带子两端的空白上）
+                if (abs(rel - center) <= cardWidth.dp.toPx() / 2f) {
+                    onToggle(hand[idx].id)
+                }
+            }
+        },
+        contentAlignment = Alignment.Center,
+    ) {
         if (hand.isEmpty()) {
             T("手牌空了", Type.Tiny.copy(color = Pal.FeltHi, fontSize = 6.5.sp))
             return@Box
         }
-        val n = hand.size
-        // 露出的宽度：默认 72%，牌多到放不下时按可用弦长均分
-        val reveal = if (n == 1) 0f else minOf(
-            cardWidth * .72f,
-            (maxWidth - cardWidth) / (n - 1),
-        ).coerceAtLeast(6.5f)
-        val span = reveal * (n - 1)
+        val reveal = revealGeo
+        val span = spanGeo
         val mid = (n - 1) / 2f
 
         hand.forEachIndexed { i, card ->
@@ -267,7 +309,8 @@ fun HandFan(
                     blocked = card.id in blockedIds,
                     scoring = false,
                     cursor = i == cursor,
-                    onClick = { onToggle(card.id) },
+                    // 点按交给外层整条手牌带判定（见 HandFan 的 pointerInput）
+                    onClick = null,
                     modifier = Modifier
                         .width(cardWidth.dp)
                         .height(cardHeight.dp)

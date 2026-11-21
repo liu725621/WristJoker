@@ -483,10 +483,10 @@ def screen_playing(img):
     rows, _ = layout_bands([
         ("a", 11, 2),
         ("b", 13, 2),
-        ("c", 24, 2),
+        ("c", 22, 2),
         ("d", 15, 1),
         ("e", 4, 2),
-        ("f", 42, 3),
+        ("f", 40, 8),   # 与按钮行拉开 8dp
         ("g2", 20, 0),
     ])
     # 已经打出去的 5 张牌（停在出牌区）
@@ -497,12 +497,18 @@ def screen_playing(img):
     for name, w, cy, h in rows:
         cx = W / 2
         if name == "a":
-            text(d, cx - px(w) / 2, cy, "AIII/8", 7, MONEY, anchor="lm")
-            text(d, cx - px(10), cy, "■ BOSS", 7, BOSS_RED)
+            # 底注与盲注合并成一段（顶栏要给「退出」腾位置），下划线提示可点
+            x0 = cx - px(w) / 2
+            text(d, x0 + px(2), cy - px(1.5), "AIII/8·小盲", 6.5, MONEY, anchor="lm")
+            d.line([x0 + px(2), cy + px(5), x0 + px(22), cy + px(5)], fill=(120, 112, 96), width=1)
             # 手牌上限：买了「画家」/吃了「通灵板」之后，唯一能验证的地方
-            text(d, cx + px(24), cy, "手8/8", 5.5, DIM)
-            rrect(d, cx + px(w) / 2 - px(19), cy, 38, 11, 2, fill=SURFACE, outline=MONEY, width=1)
-            text(d, cx + px(w) / 2 - px(19), cy, "$17", 7, MONEY)
+            text(d, cx + px(9), cy - px(1.5), "手8/8", 5.5, DIM)
+            d.line([cx + px(3), cy + px(5), cx + px(15), cy + px(5)], fill=(120, 112, 96), width=1)
+            rrect(d, x0 + px(w) - px(30), cy, 24, 10, 2, fill=SURFACE, outline=MONEY, width=1)
+            text(d, x0 + px(w) - px(30), cy, "$17", 6.5, MONEY)
+            # 退出：14dp 的小方块 + ×
+            rrect(d, x0 + px(w) - px(8), cy, 14, 9, 2, fill=(59, 51, 42))
+            text(d, x0 + px(w) - px(8), cy, "×", 7.5, DIM)
         elif name == "b":
             total = 5 * 15 + 4 * 2 + 4 + 2 + 2 * 15 + 2
             x = cx - px(total) / 2
@@ -570,7 +576,7 @@ def screen_playing(img):
             text(d, cx + px(w) / 2, cy, "1.8万/5万", 5, DIM, anchor="rm")
         elif name == "f":
             # 手牌：单排扇形（原作摆法），选中的抬起 5dp 并压到相邻牌之上
-            cw, chh = 25.0, 33.0
+            cw, chh = 25.0, 31.0
             n = len(hand)
             maxw = w - 12
             reveal = min(cw * .72, (maxw - cw) / (n - 1)) if n > 1 else 0.0
@@ -588,16 +594,33 @@ def screen_playing(img):
                            edition="FOIL" if i == 6 else None,
                            selected=sel, angle=ang)
         elif name == "g2":
-            # 22dp 排序键 + 两个 weight 按钮，间距各 4dp（与 Compose 一致）
+            # 22dp 排序键 + 两个 weight 按钮，间距各 6dp（与 Compose 一致）
             sb = 22
             x0 = cx - px(w) / 2
             rrect(d, x0 + px(sb) / 2, cy, sb, 20, 3,
                   fill=(60, 43, 26), outline=AMBER, width=1)
             text(d, x0 + px(sb) / 2, cy, "点", 7, AMBER)
-            bw = (w - sb - 8) / 2
-            bx = x0 + px(sb) + px(4)
+            bw = (w - sb - 12) / 2
+            bx = x0 + px(sb) + px(6)
             draw_button(d, bx + px(bw) / 2, cy, bw, 20, "弃 2", CHIP, filled=False)
-            draw_button(d, bx + px(bw) + px(4) + px(bw) / 2, cy, bw, 20, "出 3", MONEY)
+            draw_button(d, bx + px(bw) + px(6) + px(bw) / 2, cy, bw, 20, "出 3", MONEY)
+
+
+def screen_exit(img):
+    """局内退出确认：整张牌桌压暗 + 一颗安全按钮、一颗退出按钮。"""
+    screen_playing(img)
+    ov = Image.new("RGBA", (W, W), (27, 23, 19, 224))
+    img.paste(ov, (0, 0), ov)
+    d = ImageDraw.Draw(img)
+    cx = W / 2
+    cy = W / 2
+    # 面板：168 × 84，实色底 + 1dp 边
+    rrect(d, cx, cy, 150, 84, 6, fill=INK800, outline=INK700, width=2)
+    text(d, cx, cy - px(22), "退出本局？", 13, CREAM, bold=True)
+    text(d, cx, cy - px(6), "进度会保留，可从主菜单继续", 7, DIM)
+    bw, bh, gap = 63.5, 22, 7
+    draw_button(d, cx - px(bw + gap) / 2, cy + px(18), bw, bh, "继续玩", CHIP)
+    draw_button(d, cx + px(bw + gap) / 2, cy + px(18), bw, bh, "退出", AMBER, filled=False)
 
 
 def screen_cash(img):
@@ -1076,6 +1099,10 @@ def main():
         d.text((x + W / 2, y + W + 12), label, font=f, fill=(200, 210, 214), anchor="mm")
     canvas.save("preview/screens-all.png")
     print("wrote preview/screens-all.png", canvas.size)
+
+    # 退出确认层单独出一张：它盖在整张牌桌上，不属于弦长版式的 15 个界面
+    render(screen_exit, "preview/screen-exit.png")
+    print("wrote preview/screen-exit.png")
 
 
 if __name__ == "__main__":

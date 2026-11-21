@@ -1,18 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 图标前景：一张菱形牌 + 中心红点，抽象自"小丑牌"而非复制原作美术 -->
+<!--
+    图标前景：一张竖着的牌 + 牌面上的一顶小丑帽。
+
+    为什么是"牌 + 帽子"而不是小丑脸：图标在手表上只有 48dp，脸的五官
+    会糊成一团黑点；而"一张牌"的轮廓在任何尺寸下都成立，帽子是唯一
+    需要辨认的第二层信息。牌面的四角星与双线内框沿用界面的印刷母题。
+
+    构图留在自适应图标的安全区内（中心 72×72），四角不会被圆形遮罩吃掉。
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- 牌身：纸色圆角矩形，深咖描边（油墨黑） -->
     <path
-        android:strokeColor="#C8A96A"
-        android:strokeWidth="2.5"
-        android:pathData="M54,24 L76,54 L54,84 L32,54 Z" />
+        android:fillColor="#E8E1D1"
+        android:strokeColor="#241E18"
+        android:strokeWidth="1.6"
+        android:pathData="M36,23h36a4,4 0 0 1 4,4v58a4,4 0 0 1 -4,4h-36a4,4 0 0 1 -4,-4v-58a4,4 0 0 1 4,-4z" />
+
+    <!-- 内框：1999 的压印双线，只留一层，第二层在这个尺寸会糊 -->
     <path
-        android:fillColor="#F2EFE6"
-        android:pathData="M54,34 L68,54 L54,74 L40,54 Z" />
+        android:fillColor="#00000000"
+        android:strokeColor="#B9AE97"
+        android:strokeWidth="0.8"
+        android:pathData="M37.5,28h33a2,2 0 0 1 2,2v48a2,2 0 0 1 -2,2h-33a2,2 0 0 1 -2,-2v-48a2,2 0 0 1 2,-2z" />
+
+    <!-- 小丑帽：帽尖的球 + 向右侧软塌下来的帽身 + 帽檐。
+         直线三角会读成"圣诞树"，所以帽身用一段三次曲线把尖拉弯。 -->
     <path
-        android:fillColor="#D64545"
-        android:pathData="M54,46 L61,54 L54,62 L47,54 Z" />
+        android:fillColor="#C9604F"
+        android:pathData="M54,35m-2.9,0a2.9,2.9 0 1,0 5.8,0a2.9,2.9 0 1,0 -5.8,0" />
+    <path
+        android:fillColor="#241E18"
+        android:pathData="M54,37.8 C58.5,44 67.5,50.5 68.5,60 L42,60 Z" />
+    <path
+        android:fillColor="#241E18"
+        android:pathData="M39,60h30a1.7,1.7 0 0 1 0,3.4h-30a1.7,1.7 0 0 1 0,-3.4z" />
+
+    <!-- 帽檐下的一条分隔线：牌面下半部否则是一块空白，缩小后像张空白卡 -->
+    <path
+        android:fillColor="#B9AE97"
+        android:pathData="M47,72h14v1.2h-14z" />
 </vector>

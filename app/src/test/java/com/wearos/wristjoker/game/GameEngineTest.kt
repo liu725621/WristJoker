@@ -376,4 +376,44 @@ class GameEngineTest {
         assertEquals(a.score, b.score)
         assertEquals(a.handsLeft, b.handsLeft)
     }
+
+    /**
+     * 局内退出 → 主菜单 → 继续。
+     *
+     * 这条路径是第九·二轮新加的"退出"按钮的全部风险所在：
+     * `onExit` 先 `persist()` 再 `toMenu()`，菜单的「继续」再把同一份存档
+     * `restore()` 回同一个引擎实例 —— 不是在冷启动的新实例上恢复，
+     * 残留字段（选中集合、lastResult、pendingOutcome）都可能把牌桌弄脏。
+     */
+    @Test
+    fun `局内退出再从存档继续能回到同一张牌桌`() {
+        val e = GameEngine(7)
+        e.startRun(DeckType.RED)
+        e.selectBlind()
+        val hand = e.snapshot().hand
+        e.toggle(hand[0].id)
+        e.toggle(hand[1].id)
+
+        val before = e.snapshot()
+        assertEquals(Phase.PLAYING, before.phase)
+
+        // MainActivity.onExit()
+        val saved = SaveCodec.encode(e.export())
+        e.toMenu()
+        assertEquals(Phase.MENU, e.snapshot().phase)
+
+        // 菜单的「继续」
+        val state = SaveCodec.decode(saved)
+        assertNotNull(state)
+        e.restore(state!!)
+
+        val after = e.snapshot()
+        assertEquals(Phase.PLAYING, after.phase)
+        assertEquals(before.hand.map { it.id }, after.hand.map { it.id })
+        assertEquals(before.score, after.score)
+        assertEquals(before.handsLeft, after.handsLeft)
+        assertEquals(before.target, after.target)
+        // 选中集合本来就不落盘：恢复后是干净的，不会出现"看着选着其实没选"
+        assertTrue(after.selected.isEmpty())
+    }
 }

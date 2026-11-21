@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    单色图标（Android 13+ 主题图标）。
+
+    前景那版靠"纸色牌面 + 深咖帽子"的明度差讲内容，被系统替换成单一色后
+    帽子会与牌面融成一整块方块。所以这里反过来说：牌身实心，帽子与帽檐
+    用 evenOdd 挖空 —— 出来的是一张"带小丑剪影的牌"，任何单色下都成立。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M36,23h36a4,4 0 0 1 4,4v58a4,4 0 0 1 -4,4h-36a4,4 0 0 1 -4,-4v-58a4,4 0 0 1 4,-4z M54,39 L65,61 L43,61 Z M40.5,61h27a1.6,1.6 0 0 1 0,3.2h-27a1.6,1.6 0 0 1 0,-3.2z" />
+</vector>

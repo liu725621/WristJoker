@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -95,12 +97,12 @@ private const val T_HOLD = 700L
  * 整块界面是贴着弧长出来的，而不是被弧切掉。
  */
 internal val PLAY_BANDS = listOf(
-    CircleFit.Band(11f, 2f),   // 0 底注 · 盲注 · 手牌数 · 钱
+    CircleFit.Band(11f, 2f),   // 0 底注 · 盲注 · 手牌数 · 钱 · 退出
     CircleFit.Band(13f, 2f),   // 1 小丑 + 消耗品
-    CircleFit.Band(24f, 2f),   // 2 出牌区
+    CircleFit.Band(22f, 2f),   // 2 出牌区
     CircleFit.Band(15f, 1f),   // 3 筹码 × 倍率
     CircleFit.Band(4f, 2f),    // 4 目标进度
-    CircleFit.Band(42f, 3f),   // 5 手牌扇形
+    CircleFit.Band(40f, 8f),   // 5 手牌扇形（与按钮拉开，防误触）
     CircleFit.Band(20f, 0f),   // 6 弃牌 / 出牌
 )
 
@@ -141,6 +143,8 @@ fun GameScreen(
     onOpenDeck: () -> Unit = {},
     /** 打开牌型等级总览。 */
     onOpenInfo: () -> Unit = {},
+    /** 退出到主菜单（进度已落盘，可从菜单的「继续」回来）。 */
+    onExit: () -> Unit = {},
     /** 当前排序模式，只用于按钮上的文字。 */
     sortMode: SortMode = SortMode.RANK,
     /** 结算节奏倍率：设置页的「慢 / 标准 / 快」映射成 0.7 / 1 / 1.5。 */
@@ -149,6 +153,8 @@ fun GameScreen(
 ) {
     var cursor by remember { mutableIntStateOf(0) }
     val focus = remember { FocusRequester() }
+    /** 退出确认层：局内唯一的"离开"入口，误触代价是一局，所以要点两次。 */
+    var confirmExit by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
@@ -253,26 +259,30 @@ fun GameScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 底注可点 → 牌型等级总览（原版的 Run Info）
-                Box(
-                    Modifier
+                // 底注 + 盲注合并成一段：顶栏要腾出位置给「退出」，
+                // 原来两者之间那条 SpaceBetween 的缝比字还宽。点击仍去牌型等级总览。
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
                         .clip(RoundedCornerShape(2.dp))
                         .clickable { onOpenInfo() }
-                        .padding(horizontal = 1.dp, vertical = 1.dp),
+                        .padding(horizontal = 1.dp),
                 ) {
-                    T(
-                        "A${roman(ui.ante)}" + if (ui.endless) "∞" else "/8",
-                        Type.TinyMono.copy(color = Pal.Money, fontSize = 7.sp),
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (ui.isBoss) SuitDot(Pal.BossRed, Modifier.padding(end = 2.dp))
-                    T(
-                        shortBlind(ui.blindKind),
-                        Type.TinyMono.copy(
-                            fontSize = 7.sp,
-                            color = if (ui.isBoss) Pal.BossRed else Pal.BlindGreen,
-                        ),
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (ui.isBoss) SuitDot(Pal.BossRed, Modifier.padding(end = 1.dp))
+                        T(
+                            "A${roman(ui.ante)}${if (ui.endless) "∞" else "/8"}·${shortBlind(ui.blindKind)}",
+                            Type.TinyMono.copy(
+                                fontSize = 6.5.sp,
+                                color = if (ui.isBoss) Pal.BossRed else Pal.Money,
+                            ),
+                        )
+                    }
+                    Box(
+                        Modifier
+                            .width(20.dp)
+                            .height(.5.dp)
+                            .background(Pal.Dim.copy(alpha = .45f)),
                     )
                 }
                 // 手牌上限必须看得见 —— 玩家买了「画家」、吃了「通灵板」之后
@@ -299,8 +309,20 @@ fun GameScreen(
                             .background(Pal.Dim.copy(alpha = .45f)),
                     )
                 }
-                Spacer(Modifier.width(3.dp))
                 CountBadge("$${ui.money}", Pal.Money)
+                // 退出：局内唯一的"离开"入口。顶栏只放得下 14dp，
+                // 所以点开后还有一层确认 —— 这个小按钮本身不该承担"一键退出"。
+                Box(
+                    Modifier
+                        .width(15.dp)
+                        .height(11.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Pal.Ink700.copy(alpha = .55f))
+                        .clickable { confirmExit = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    T("×", Type.TinyMono.copy(fontSize = 8.sp, color = Pal.Dim))
+                }
             }
 
             Spacer(Modifier.height(PLAY_BANDS[0].gap.dp))
@@ -393,7 +415,9 @@ fun GameScreen(
             /* ---- 带 6：弃牌 / 出牌（原版左弃右出）+ 排序 --------------- */
             Row(
                 Modifier.width(PLAY_W[6].dp).height(20.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                // 6dp 而不是 4dp：出牌和弃牌是两种不可撤销的操作，
+                // 手指落在两键之间时，宁可两边都不响，也不能点"出"却弃了牌。
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 排序：单键切换「按点数 / 按花色」，按钮上只放一个字。
@@ -434,6 +458,81 @@ fun GameScreen(
                     onClick = onPlay,
                     modifier = Modifier.weight(1f),
                     height = 20,
+                )
+            }
+        }
+
+        // ---- 退出确认：盖住整张牌桌 ----
+        if (confirmExit) {
+            ExitConfirm(
+                onStay = { confirmExit = false },
+                onLeave = {
+                    confirmExit = false
+                    onExit()
+                },
+            )
+        }
+    }
+}
+
+/**
+ * 「退出本局？」确认层。
+ *
+ * 两个按钮的默认落点是「继续玩」：真要退出的人会多花半秒去找，
+ * 误触的人则直接落在安全选项上。文案不写"保存"，写"进度会保留" ——
+ * 玩家关心的是"会不会白打"，不是存储介质。
+ */
+@Composable
+private fun ExitConfirm(onStay: () -> Unit, onLeave: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Pal.Bg.copy(alpha = .88f))
+            // 吞掉所有触摸：底下的牌桌此时不该再响应
+            .clickable(enabled = false) {},
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .width(150.dp)
+                // 面板自己有一层实色：全屏遮罩只压暗背景，靠它来保证
+                // 按钮与文字的对比度（手表在户外，虚焦的背景很吃对比）
+                .clip(RoundedCornerShape(6.dp))
+                .background(Pal.Ink800)
+                .border(1.dp, Pal.Ink700, RoundedCornerShape(6.dp))
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            T(
+                "退出本局？",
+                Type.Title.copy(fontSize = 13.sp, color = Pal.Cream, letterSpacing = 1.2.sp),
+            )
+            Spacer(Modifier.height(5.dp))
+            T(
+                "进度会保留，可从主菜单继续",
+                Type.Tiny.copy(fontSize = 7.sp, color = Pal.Dim),
+            )
+            Spacer(Modifier.height(11.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                CasinoButton(
+                    label = "继续玩",
+                    enabled = true,
+                    accent = Pal.Chip,
+                    onClick = onStay,
+                    modifier = Modifier.weight(1f),
+                    height = 22,
+                )
+                CasinoButton(
+                    label = "退出",
+                    enabled = true,
+                    accent = Pal.Amber400,
+                    onClick = onLeave,
+                    modifier = Modifier.weight(1f),
+                    filled = false,
+                    height = 22,
                 )
             }
         }
