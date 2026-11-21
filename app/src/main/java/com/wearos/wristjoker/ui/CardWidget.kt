@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -39,6 +40,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -93,6 +100,26 @@ fun PlayingCard(
             .clip(shape)
             .background(Pal.CardFace)
             .border(if (selected || scoring) 1.6.dp else 1.dp, edge, shape)
+            // 无障碍：牌是纯 Canvas 画的，不声明语义的话 TalkBack 只会读出
+            // 一个没有名字的按钮。花色 + 点数 + 状态一次说完，选中与否
+            // 走 stateDescription（读屏器在切换时会念"已选中 / 未选中"）。
+            .semantics {
+                contentDescription = buildString {
+                    append(card.suit.cn).append(' ').append(card.rank.label)
+                    if (blocked) append("，本关封锁")
+                    if (scoring) append("，计分中")
+                }
+                // 参数名和语义属性同名，直接写 `selected = selected` 会被
+                // 当成给参数赋值；用局部变量绕开这个歧义。
+                val sel = selected
+                this.selected = sel
+                stateDescription = when {
+                    blocked -> "封锁"
+                    sel -> "已选中"
+                    else -> "未选中"
+                }
+                if (onClick != null) role = Role.Button
+            }
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         CardFaceArt(card, Modifier.fillMaxSize())
@@ -204,6 +231,14 @@ fun HandFan(
     cardHeight: Float = 33f,
     /** 长按拖动重排：把第 from 张移到第 to 位（原版手牌可拖拽）。 */
     onMove: (Int, Int) -> Unit = { _, _ -> },
+    /**
+     * 递增计数：出牌 / 弃牌时 +1，手牌带整体下沉一下。
+     *
+     * 真做"牌从手里飞出去"需要延迟引擎的补牌（先让旧牌飞完再补），
+     * 而那会让出牌与结算的时序耦合。用整条带子下沉 8dp + 压暗 45%
+     * 表达同一个意思：这一批牌离手了。
+     */
+    kick: Int = 0,
 ) {
     // 摊开参数必须在 Box 之外算：点击是按"离哪张牌的中心最近"判定的，
     // 手势要挂在容器上，而容器的 modifier 在 Box 之前就要就绪。
@@ -214,8 +249,20 @@ fun HandFan(
     ).coerceAtLeast(6.5f)
     val spanGeo = revealGeo * (n - 1).coerceAtLeast(0)
 
+    val sink = remember { Animatable(0f) }
+    LaunchedEffect(kick) {
+        if (kick == 0) return@LaunchedEffect
+        sink.snapTo(1f)
+        sink.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
+    }
+
     Box(
-        modifier = modifier.pointerInput(hand, revealGeo, spanGeo) {
+        modifier = modifier
+            .graphicsLayer {
+                translationY = sink.value * 8.dp.toPx()
+                alpha = 1f - sink.value * .45f
+            }
+            .pointerInput(hand, revealGeo, spanGeo) {
             if (n == 0) return@pointerInput
             // 一张牌时整条带子都是它
             if (n == 1) {
@@ -345,6 +392,15 @@ fun JokerStrip(
     pulseIndex: Int = -1,
     modifier: Modifier = Modifier,
 ) {
+    // 新买入的小丑用一次"弹进来"代替直接出现 —— 原版是从商品卡飞到槽位，
+    // 手表上做不到共享坐标（商店和牌桌是两屏），但至少让"多了一张"这件事
+    // 有个时间上的落点。
+    var prevCount by remember { mutableIntStateOf(jokers.size) }
+    var freshIdx by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(jokers.size) {
+        freshIdx = if (jokers.size > prevCount) jokers.size - 1 else -1
+        prevCount = jokers.size
+    }
     Row(
         modifier,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -370,10 +426,17 @@ fun JokerStrip(
                     animationSpec = spring(dampingRatio = 0.4f, stiffness = 900f),
                     label = "jokerPulse",
                 )
+                val entrance = remember(j.id) { Animatable(1f) }
+                LaunchedEffect(j.id, freshIdx) {
+                    if (i != freshIdx) return@LaunchedEffect
+                    entrance.snapTo(.35f)
+                    entrance.animateTo(1f, spring(dampingRatio = .45f, stiffness = 620f))
+                }
                 Box(
                     Modifier.graphicsLayer {
-                        scaleX = pulse
-                        scaleY = pulse
+                        scaleX = pulse * entrance.value
+                        scaleY = pulse * entrance.value
+                        alpha = .4f + .6f * entrance.value.coerceIn(0f, 1f)
                     }
                 ) {
                     JokerBadge(

@@ -163,6 +163,9 @@ fun GameScreen(
     // ---- 结算动画状态：-1 未播放；0 牌刚落桌；1..n 播第 i 步；n+1 播完 ----
     var step by remember { mutableIntStateOf(-1) }
     var shake by remember { mutableIntStateOf(0) }
+    /** 出牌 / 弃牌时手牌带下沉一次的计数。 */
+    var handKick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(ui.handsPlayed, ui.discardsLeft) { handKick++ }
     var shakeAmount by remember { mutableIntStateOf(2) }
     /** 达标闪白的触发计数（每次自增触发一帧白光）。 */
     var flash by remember { mutableIntStateOf(0) }
@@ -378,15 +381,39 @@ fun GameScreen(
             Spacer(Modifier.height(PLAY_BANDS[3].gap.dp))
 
             /* ---- 带 4：目标进度 -------------------------------------- */
-            Row(
-                Modifier.width(PLAY_W[4].dp).height(PLAY_BANDS[4].h.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ScoreBar(ui.progress, Modifier.weight(1f).height(4.dp))
-                T(
-                    " ${fmtScore(ui.score)}/${fmtScore(ui.target)}",
-                    Type.TinyMono.copy(color = Pal.Dim, fontSize = 5.5.sp),
-                )
+            // 选牌时把"这一手能打多远"画成第二层进度（绿），并在右侧给出
+            // 结论：够 → ✓ 打完后总分；不够 → +这手的分。原版这两件事
+            // 分别由左侧面板和进度条承担，手表上并为一行。
+            run {
+                val pv = ui.preview
+                val est = if (pv != null) {
+                    (pv.totalChips.toDouble() * pv.totalMult).toLong().coerceAtLeast(0L)
+                } else 0L
+                val after = ui.score + est
+                val clear = pv != null && after >= ui.target && ui.target > 0
+                Row(
+                    Modifier.width(PLAY_W[4].dp).height(PLAY_BANDS[4].h.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ScoreBar(
+                        progress = ui.progress,
+                        modifier = Modifier.weight(1f).height(4.dp),
+                        preview = if (pv != null && ui.target > 0) {
+                            after.toFloat() / ui.target.toFloat()
+                        } else 0f,
+                    )
+                    T(
+                        when {
+                            pv == null -> " ${fmtScore(ui.score)}/${fmtScore(ui.target)}"
+                            clear -> " ✓${fmtScore(after)}"
+                            else -> " +${fmtScore(est)}"
+                        },
+                        Type.TinyMono.copy(
+                            color = if (clear) Pal.Green else Pal.Dim,
+                            fontSize = 5.5.sp,
+                        ),
+                    )
+                }
             }
 
             Spacer(Modifier.height(PLAY_BANDS[4].gap.dp))
@@ -407,6 +434,7 @@ fun GameScreen(
                     onToggle(id)
                 },
                 onMove = onMove,
+                kick = handKick,
                 modifier = Modifier.width(PLAY_W[5].dp).height(PLAY_BANDS[5].h.dp),
             )
 
@@ -589,6 +617,20 @@ private fun PlayedArea(
                         ui.modifier.desc,
                         Type.Tiny.copy(color = Pal.BossRed.copy(alpha = .85f), fontSize = 6.sp),
                     )
+                    // 眼 / 嘴：这两关"能出什么牌型"本身就是规则的一部分，
+                    // 出错了直接 0 分。原版在左侧常驻一张牌型表，手表上
+                    // 没这面墙，就把"本关已出过"压在 Boss 描述下面 ——
+                    // 它只在出牌区为空时可见，而那正是做决策的时刻。
+                    if (ui.modifier == BossModifier.EYE || ui.modifier == BossModifier.MOUTH) {
+                        T(
+                            if (ui.playedTypes.isEmpty()) "本关还没出过牌型"
+                            else "已出 " + ui.playedTypes.joinToString("·") { it.cn },
+                            Type.Tiny.copy(
+                                color = Pal.BossRed.copy(alpha = .75f),
+                                fontSize = 5.5.sp,
+                            ),
+                        )
+                    }
                 }
             } else if (ui.preview != null) {
                 val p = ui.preview
@@ -677,16 +719,18 @@ private fun PlayedCard(
         animationSpec = tween(200),
         label = "dim",
     )
-    // 入场：从 +12dp、0.84 缩放、全透明开始，按 index 错峰 36ms。
+    // 入场：从手牌带的方向（下方 56dp）、±14° 倾斜、0.7 缩放、全透明开始，
+    // 按 index 错峰 36ms 飞入并回正。
     //
-    // 这是"牌飞向出牌区"的廉价替代 —— 真位移需要手牌与出牌区的共享坐标，
-    // 在七条动态分带的版式里做起来很脆。但落位这一下有过程，
-    // 眼睛就不必在"手牌消失"和"出牌区出现"之间重新找焦点。
+    // 位移从上一版的 12dp 加到 56dp，是因为 12dp 在 1.4 英寸屏上只是
+    // "抖了一下" —— 眼睛读到的仍是"瞬移"。56dp 差不多是手牌带到出牌区的
+    // 实际距离，牌看起来是从手里被抽出来的；同时保留一个由 id 决定的
+    // 起手倾角，五张牌飞进来的轨迹不会完全平行。
     val enter = remember(card.id) { Animatable(0f) }
     LaunchedEffect(card.id) {
         enter.snapTo(0f)
         delay((index * 36L).coerceAtMost(220L))
-        enter.animateTo(1f, tween(230, easing = FastOutSlowInEasing))
+        enter.animateTo(1f, tween(300, easing = FastOutSlowInEasing))
     }
     Box(modifier.size(28.dp, 20.dp)) {
         Box(
@@ -694,14 +738,16 @@ private fun PlayedCard(
                 .fillMaxSize()
                 .graphicsLayer {
                     val e = enter.value
-                    val s = (1f + .16f * bounce) * (.84f + .16f * e)
+                    val s = (1f + .16f * bounce) * (.7f + .3f * e)
                     scaleX = s
                     scaleY = s
-                    translationY = -3.dp.toPx() * bounce + (1f - e) * 12.dp.toPx()
+                    translationY = -3.dp.toPx() * bounce + (1f - e) * 56.dp.toPx()
                     alpha = e
-                    // 原版每张打出的牌带 ±3° 随机倾斜，避免"阅兵式"的死板排布；
-                    // 用 id 做稳定伪随机，同一张牌每帧角度不变。
-                    rotationZ = (((card.id * 31) % 7) - 3).toFloat()
+                    // 落定时回正到 ±3°：原版每张打出的牌带一点随机倾斜，
+                    // 避免"阅兵式"的死板排布；用 id 做稳定伪随机。
+                    val tilt = (((card.id * 31) % 7) - 3).toFloat()
+                    val from = if (card.id % 2 == 0) 14f else -14f
+                    rotationZ = tilt + (1f - e) * from
                 }
                 .clip(RoundedCornerShape(2.dp))
                 .background(Pal.CardFace)

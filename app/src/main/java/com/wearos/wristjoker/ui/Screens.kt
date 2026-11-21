@@ -37,6 +37,7 @@ import com.wearos.wristjoker.game.JokerInst
 import com.wearos.wristjoker.game.Phase
 import com.wearos.wristjoker.game.Rarity
 import com.wearos.wristjoker.game.Stake
+import com.wearos.wristjoker.game.Unlocks
 import com.wearos.wristjoker.game.Tag
 import com.wearos.wristjoker.game.Voucher
 
@@ -59,8 +60,8 @@ private val MENU = roundLayout(
     CircleFit.Band(9f, 2f),    // 2 JOKER
     CircleFit.Band(11f, 3f),   // 3 存档 / 最佳记录
     CircleFit.Band(26f, 3f),   // 4 主按钮
-    CircleFit.Band(24f, 3f),   // 5 次按钮
-    CircleFit.Band(22f, 2f),   // 6 挑战
+    CircleFit.Band(22f, 3f),   // 5 新局 + 挑战
+    CircleFit.Band(20f, 2f),   // 6 生涯 / 成就 / 种子
     CircleFit.Band(20f, 0f),   // 7 图鉴 / 设置
 )
 
@@ -83,6 +84,9 @@ fun MenuScreen(
     onChallenges: () -> Unit,
     onCollection: () -> Unit,
     onSettings: () -> Unit,
+    onCareer: () -> Unit = {},
+    onAchievements: () -> Unit = {},
+    onSeed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // 只看"磁盘上有没有一局"，不看 phase：局内退出会先把进度落盘再 toMenu()，
@@ -149,29 +153,40 @@ fun MenuScreen(
         }
         BandGap(L.gap[4])
 
+        // 「新的一局」与「挑战」并排：两者都是"开一局"，只是入口不同，
+        // 分成两行会让菜单多一行、主按钮被挤小。
         BandRow(L.w[5], L.h[5], horizontalArrangement = Arrangement.Center) {
+            val bw = (L.w[5] * .34f).dp
             CasinoButton(
                 label = "新的一局",
                 enabled = true,
                 accent = Pal.Chip,
                 onClick = onNewRun,
-                modifier = Modifier.width((L.w[5] * .52f).dp),
+                modifier = Modifier.width(bw),
+                filled = false,
+                height = 22,
+            )
+            Spacer(Modifier.width(6.dp))
+            CasinoButton(
+                label = "挑战 ${Challenge.entries.size}",
+                enabled = true,
+                accent = Pal.Purple,
+                onClick = onChallenges,
+                modifier = Modifier.width(bw),
                 filled = false,
                 height = 22,
             )
         }
         BandGap(L.gap[5])
 
+        // 长线三层：生涯 / 成就 / 种子。它们不是"开一局"，放在主流程之下。
         BandRow(L.w[6], L.h[6], horizontalArrangement = Arrangement.Center) {
-            CasinoButton(
-                label = "挑战 · ${Challenge.entries.size} 个",
-                enabled = true,
-                accent = Pal.Purple,
-                onClick = onChallenges,
-                modifier = Modifier.width((L.w[6] * .46f).dp),
-                filled = false,
-                height = 20,
-            )
+            val bw = (L.w[6] * .26f).dp
+            CasinoButton("生涯", true, Pal.Money, onCareer, Modifier.width(bw), filled = false, height = 19)
+            Spacer(Modifier.width(5.dp))
+            CasinoButton("成就", true, Pal.Amber400, onAchievements, Modifier.width(bw), filled = false, height = 19)
+            Spacer(Modifier.width(5.dp))
+            CasinoButton("种子", true, Pal.Green, onSeed, Modifier.width(bw), filled = false, height = 19)
         }
         BandGap(L.gap[6])
 
@@ -230,6 +245,8 @@ fun DeckSelectScreen(
     onPick: (DeckType) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 生涯最高底注：决定后 10 个牌组是否开放。 */
+    bestAnte: Int = Int.MAX_VALUE,
 ) {
     // 只允许在已解锁的档位里循环。原版是"通关才解锁下一档"，
     // 这里同样把未解锁的档位挡在外面，但不会让玩家卡在"选不到"上 ——
@@ -239,7 +256,14 @@ fun DeckSelectScreen(
     RoundPage(DECK, modifier) { L ->
         BandRow(L.w[0], L.h[0]) {
             T("选牌组", Type.Medium.copy(fontSize = 11.sp, color = Pal.Money))
-            T("${DeckType.entries.size} 种 · 影响开局", Type.TinyMono.copy(color = Pal.Dim, fontSize = 6.sp))
+            val open = DeckType.entries.count { Unlocks.deckUnlocked(it, bestAnte) }
+            T(
+                "$open/${DeckType.entries.size} 已开",
+                Type.TinyMono.copy(
+                    color = if (open < DeckType.entries.size) Pal.Amber400 else Pal.Dim,
+                    fontSize = 6.sp,
+                ),
+            )
         }
         BandGap(L.gap[0])
 
@@ -286,7 +310,8 @@ fun DeckSelectScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 itemsIndexed(DeckType.entries.toList()) { i, d ->
-                    DeckRow(i, d) { onPick(d) }
+                    val open = Unlocks.deckUnlocked(d, bestAnte)
+                    DeckRow(i, d, open) { if (open) onPick(d) }
                 }
             }
         }
@@ -308,16 +333,27 @@ fun DeckSelectScreen(
 
 /** 一行牌组：序号 + 名字 + 加成。 */
 @Composable
-private fun DeckRow(index: Int, deck: DeckType, onClick: () -> Unit) {
+private fun DeckRow(index: Int, deck: DeckType, unlocked: Boolean = true, onClick: () -> Unit) {
     val shape = RoundedCornerShape(3.dp)
+    // 未解锁的牌组仍然留在列表里 —— 直接藏掉会让"15 种"这个数字显得虚，
+    // 而且玩家看不到自己还差什么。灰掉 + 写解锁条件，比藏起来更有推力。
+    val need = when {
+        deck.ordinal < 5 -> 0
+        deck.ordinal < 10 -> 3
+        else -> 6
+    }
     Row(
         Modifier
             .fillMaxWidth()
             .height(20.dp)
             .clip(shape)
-            .background(Pal.Surface)
-            .border(1.dp, Pal.Money.copy(alpha = .45f), shape)
-            .clickable(onClick = onClick)
+            .background(if (unlocked) Pal.Surface else Pal.Surface.copy(alpha = .45f))
+            .border(
+                1.dp,
+                if (unlocked) Pal.Money.copy(alpha = .45f) else Pal.FeltHi.copy(alpha = .35f),
+                shape,
+            )
+            .clickable(enabled = unlocked, onClick = onClick)
             .padding(horizontal = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -335,9 +371,21 @@ private fun DeckRow(index: Int, deck: DeckType, onClick: () -> Unit) {
             CardBackArt(Modifier.fillMaxSize())
         }
         Spacer(Modifier.width(4.dp))
-        T(deck.cn, Type.TinyMono.copy(color = Pal.Cream, fontSize = 8.sp))
+        T(
+            deck.cn,
+            Type.TinyMono.copy(
+                color = if (unlocked) Pal.Cream else Pal.Dim.copy(alpha = .7f),
+                fontSize = 8.sp,
+            ),
+        )
         Spacer(Modifier.weight(1f))
-        T(deck.desc, Type.Tiny.copy(color = Pal.Dim, fontSize = 6.5.sp))
+        T(
+            if (unlocked) deck.desc else "A$need 解锁",
+            Type.Tiny.copy(
+                color = if (unlocked) Pal.Dim else Pal.Amber400.copy(alpha = .7f),
+                fontSize = 6.5.sp,
+            ),
+        )
     }
 }
 

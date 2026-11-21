@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wearos.wristjoker.game.Collection
@@ -67,7 +68,17 @@ fun CollectionScreen(
     val cur = CollectionTab.entries[tab]
     val items = Collection.of(cur)
 
-    RoundPage(COLLECTION, modifier) { L ->
+    // 表冠翻页：图鉴是最典型的"一页一页看"的场景，5 个分页用转表冠切
+    // 比用手指戳 36dp 的小标签舒服得多（手指会盖住正在看的那一页）。
+    RoundPage(
+        COLLECTION,
+        modifier.onRotaryScrollEvent { e ->
+            if (picked != null) return@onRotaryScrollEvent false
+            val step = if (e.verticalScrollPixels > 0) 1 else -1
+            tab = (tab + step).coerceIn(0, CollectionTab.entries.size - 1)
+            true
+        },
+    ) { L ->
         BandRow(L.w[0], L.h[0]) {
             T("图鉴", Type.Medium.copy(fontSize = 11.sp, color = Pal.Money))
             val done = Collection.seenCount(cur, seen)

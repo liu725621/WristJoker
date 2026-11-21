@@ -88,6 +88,14 @@ data class ShopState(
     val cards: List<ShopItem> = emptyList(),
     val boosters: List<ShopItem> = emptyList(),
     val vouchers: List<ShopItem> = emptyList(),
+    /**
+     * 被锁住的小丑/消耗品位（下标指向 [cards]）。
+     *
+     * 原版花 $1 锁一张，重掷时它不换 —— 这是"攒钱买贵牌"唯一的抓手。
+     * 手表上不单独收这 $1：一次重掷本来就要 $5 起，锁位再收 $1
+     * 会让"先锁再掷"的总价难以预期，而这枚硬币对平衡毫无影响。
+     */
+    val locked: Set<Int> = emptySet(),
 ) {
     /** 第一张券。保留这个别名，是因为很多地方只关心"有没有券"。 */
     val voucher: ShopItem? get() = vouchers.firstOrNull()
@@ -125,6 +133,8 @@ data class CashOutDetail(
     val doubleTag: Boolean,
     val walletBonus: Int,
     val total: Int,
+    /** 回合结束时小丑给的钱（黄金小丑这类）。旧档没有这个字段，默认 0。 */
+    val jokerBonus: Int = 0,
 ) {
     val isBoss: Boolean get() = blindKind == BlindKind.BOSS
     val interestDoubled: Boolean get() = doubleTag
@@ -170,7 +180,13 @@ data class GameUi(
     val blindsCleared: Int = 0,
     val lastGain: Int = 0,
     val endless: Boolean = false,
+    /** 本局累计弃牌数（结算写统计用）。 */
+    val discardsTotal: Int = 0,
     val hasSave: Boolean = false,
+    /** 本局种子（6 位十进制展示；同一颗种子牌序完全一致）。 */
+    val seed: Long = 0,
+    /** 本局是否为每日挑战。 */
+    val daily: Boolean = false,
     /** 当前赌注。 */
     val stake: Stake = Stake.WHITE,
     /** 当前挑战（普通一局为 null）。 */
@@ -346,6 +362,20 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
     private var shop = ShopState()
     private var rerollCost = 5
     private var cashOut: CashOutDetail? = null
+
+    /**
+     * 生涯成绩单，由宿主（[SaveStore]）在启动与每局结束时注入。
+     *
+     * 引擎自己不持有跨局数据的真相 —— 存档在 SharedPreferences 里，
+     * 这里只是一份只读快照，用于两件事：稀有档是否已解锁、牌组是否已开放。
+     * 不参与单局存档（`RunState`），因为它不属于"这一局"。
+     */
+    var career: CareerStats = CareerStats()
+        set(value) { field = value }
+
+    /** 本局是否每日挑战。不进存档：重开一局就是普通局。 */
+    private var daily = false
+
 
     private var message = ""
     private var lastResult: ScoreBreakdown? = null
@@ -556,12 +586,34 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         }
     }
 
-    fun startRun(type: DeckType, stakeLevel: Stake = stake) {
+    /**
+     * 开一局。
+     *
+     * [seedOverride] 为 null 时用当前引擎的种子（构造时取系统时间），
+     * 传入则固定种子 —— 每日挑战与"种子局"都走这条路：同一颗种子，
+     * 牌序、商店、Boss 序列完全一致，便于复盘与分享。
+     */
+    fun startRun(type: DeckType, stakeLevel: Stake = stake, seedOverride: Long? = null) {
         challenge = null
         stake = stakeLevel
-        resetRun(type)
+        daily = false
+        if (seedOverride != null) seed = seedOverride
+        resetRun(type, seedOverride)
         phase = Phase.BLIND_SELECT
         message = "${stakeLevel.cn} · 第 1 关，选一个盲注开打"
+    }
+
+    /**
+     * 每日挑战：同一天全世界同一颗种子。
+     *
+     * [dayKey] 由宿主按本地日期算（如 `20261121`），引擎只负责把它搅成
+     * 一颗像样的种子 —— 纯日期数字当种子会让相邻两天的前几张牌高度相似，
+     * 乘一个大质数再错位，分布才拉得开。
+     */
+    fun startDaily(type: DeckType = DeckType.RED, dayKey: Int) {
+        startRun(type, Stake.WHITE, seedOverride = dayKey.toLong() * 1_000_003L + 17)
+        daily = true
+        message = "每日 · ${dayKey} · ${type.cn}"
     }
 
     /** 开始一个挑战：固定种子、固定牌组、固定赌注。 */
@@ -1134,7 +1186,7 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
      * 2 个商品（小丑 : 塔罗 : 行星 = 20 : 4 : 4）、2 个补充包、1 张代金券。
      */
     private fun rollShop() {
-        // 「主持人」：商店允许出现已拥有的小丑（原版 Showman）
+        // 「马戏团长」：商店允许出现已拥有的小丑（原版 Showman）
         val ownedJokers = if (jokers.any { it.id == "showman" }) emptySet()
         else jokers.map { it.id }.toSet()
         val cards = mutableListOf<ShopItem>()
@@ -1148,7 +1200,13 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
             val r = random.nextInt(20 + tarotW + planetW)
             when {
                 r < 20 -> {
-                    val def = Jokers.rollOne(random, ownedJokers)
+                    // 底注决定稀有档权重，生涯决定整档是否已解锁
+                    val def = Jokers.rollOne(
+                        random = random,
+                        owned = ownedJokers,
+                        ante = ante,
+                        rareUnlocked = Unlocks.rarityAllowed(Rarity.RARE, career),
+                    )
                     if (def != null) {
                         val ed = Jokers.randomEdition(random, editionBoost)
                         val inst = JokerInst(def, ed)
@@ -1242,8 +1300,26 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         }
         money -= item.price
         shop = shop.copy(
-            cards = shop.cards.toMutableList().also { it[index] = markSold(item) }
+            cards = shop.cards.toMutableList().also { it[index] = markSold(item) },
+            // 买走的位不再"锁着"：锁是给"还没买、想留住"的商品用的
+            locked = shop.locked - index,
         )
+        return true
+    }
+
+    /**
+     * 锁住 / 解锁一个商品位。
+     *
+     * 锁只影响重掷（[reroll] 会把锁位的旧商品放回去），不影响购买 ——
+     * 原版也是如此。已卖出的位不能再锁。
+     */
+    fun toggleLock(index: Int): Boolean {
+        if (phase != Phase.SHOP) return false
+        val item = shop.cards.getOrNull(index) ?: return false
+        if (item.sold) return false
+        val next = if (index in shop.locked) shop.locked - index else shop.locked + index
+        shop = shop.copy(locked = next)
+        message = if (index in next) "已锁定" else "已解锁"
         return true
     }
 
@@ -1336,6 +1412,22 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         return true
     }
 
+    /**
+     * 卖掉一张消耗品。
+     *
+     * 塔罗与行星回收 $1，幻灵 $2 —— 原版的回收价比这个高，但手表上一局
+     * 的钱本来就紧，"卖牌回血"如果太赚，玩家会把商店当银行，
+     * 反而破坏"囤消耗品还是囤小丑"的取舍。
+     */
+    fun sellConsumable(index: Int): Boolean {
+        val c = consumables.getOrNull(index) ?: return false
+        val refund = if (c.kind == ConsumableKind.SPECTRAL) 2 else 1
+        consumables.removeAt(index)
+        money += refund
+        message = "卖掉 ${c.name}，+\$$refund"
+        return true
+    }
+
     /** 商店：重掷商品位（补充包和代金券不刷新，与原版一致）。 */
     fun reroll(): Boolean {
         if (phase != Phase.SHOP) return false
@@ -1351,14 +1443,21 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         if (!free) money -= rerollCost
         rerolls++
         rerollCost += 1
-        // 只重掷商品位；包与券保留
+        // 只重掷商品位；包与券保留；锁位放回原商品
         val keepBoosters = shop.boosters
         val keepVouchers = shop.vouchers
+        val oldCards = shop.cards
+        val locked = shop.locked
         rollShop()
+        val fresh = shop.cards.toMutableList()
+        for (i in locked) {
+            if (i < oldCards.size && i < fresh.size) fresh[i] = oldCards[i]
+        }
         shop = ShopState(
-            cards = shop.cards,
+            cards = fresh,
             boosters = keepBoosters,
             vouchers = keepVouchers,
+            locked = locked.filter { it < fresh.size }.toSet(),
         )
         message = if (free) "免费重掷" else "已重掷"
         return true
@@ -1604,6 +1703,8 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         val dbl = pendingTags.contains(Tag.DOUBLE)
         val base = if (stake.smallBlindNoReward && spec.kind == BlindKind.SMALL) 0 else spec.reward
         val handBonus = handsLeft
+        // 回合结束给钱的小丑（黄金小丑）：原版在回合结算时发，不是在计分时
+        val jokerEnd = jokers.sumOf { if (it.id == "golden") 4 else 0 }
         val subtotal = base + handBonus + interest + handy + wallet
         cashOut = CashOutDetail(
             ante = ante,
@@ -1617,7 +1718,8 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
             handyBonus = handy,
             doubleTag = dbl,
             walletBonus = wallet,
-            total = if (dbl) subtotal * 2 else subtotal,
+            total = (if (dbl) subtotal * 2 else subtotal) + jokerEnd,
+            jokerBonus = jokerEnd,
         )
         // 蓝蜡封：回合结束时仍留在手里的牌，各生成"最后打出牌型"的行星牌
         // （原版 1.0.1f 起改为按牌型给行星，不再是随机行星）
@@ -1793,7 +1895,10 @@ class GameEngine(seed: Long = System.currentTimeMillis()) {
         blindsCleared = blindsCleared,
         lastGain = lastGain,
         endless = endless,
+        discardsTotal = discardsTotal,
         hasSave = hasSave,
+        seed = seed,
+        daily = daily,
         stake = stake,
         challenge = challenge,
         blockedIds = if (phase == Phase.PLAYING) effectiveBlocked() else emptySet(),

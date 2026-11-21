@@ -1,10 +1,12 @@
 package com.wearos.wristjoker
 
 import android.content.Context
+import com.wearos.wristjoker.game.CareerStats
 import com.wearos.wristjoker.game.Collection
 import com.wearos.wristjoker.game.GameEngine
 import com.wearos.wristjoker.game.SaveCodec
 import com.wearos.wristjoker.game.Stake
+import com.wearos.wristjoker.game.achievementsOf
 
 /**
  * 自动存档。
@@ -77,12 +79,118 @@ class SaveStore(context: Context) {
         get() = prefs.getInt(KEY_RUNS, 0)
         private set(value) = prefs.edit().putInt(KEY_RUNS, value).apply()
 
-    /** 一局结束后更新历史最好成绩。 */
-    fun recordRun(ante: Int, hand: Long) {
+    // ---- 统计页需要、但此前根本没有采集的量 ----
+
+    var wins: Int
+        get() = prefs.getInt(KEY_WINS, 0)
+        private set(value) = prefs.edit().putInt(KEY_WINS, value).apply()
+
+    /** 单局最高总分（不是单手指）。 */
+    var bestScore: Long
+        get() = prefs.getLong(KEY_BEST_SCORE, 0)
+        private set(value) = prefs.edit().putLong(KEY_BEST_SCORE, value).apply()
+
+    var totalHands: Long
+        get() = prefs.getLong(KEY_TOTAL_HANDS, 0)
+        private set(value) = prefs.edit().putLong(KEY_TOTAL_HANDS, value).apply()
+
+    var totalDiscards: Long
+        get() = prefs.getLong(KEY_TOTAL_DISCARDS, 0)
+        private set(value) = prefs.edit().putLong(KEY_TOTAL_DISCARDS, value).apply()
+
+    /** 一局结束时的最高持币。 */
+    var bestMoney: Int
+        get() = prefs.getInt(KEY_BEST_MONEY, 0)
+        private set(value) = prefs.edit().putInt(KEY_BEST_MONEY, value).apply()
+
+    /** 当前连胜。 */
+    var streak: Int
+        get() = prefs.getInt(KEY_STREAK, 0)
+        private set(value) = prefs.edit().putInt(KEY_STREAK, value).apply()
+
+    var bestStreak: Int
+        get() = prefs.getInt(KEY_BEST_STREAK, 0)
+        private set(value) = prefs.edit().putInt(KEY_BEST_STREAK, value).apply()
+
+    /** 通关过的最高赌注档（用于统计页展示"最高难度通关"）。 */
+    var bestStakeWon: Int
+        get() = prefs.getInt(KEY_BEST_STAKE_WON, 0)
+        private set(value) = prefs.edit().putInt(KEY_BEST_STAKE_WON, value).apply()
+
+    /**
+     * 一局结束后更新历史最好成绩。
+     *
+     * 参数从 2 个扩到 7 个，是因为统计页要展示的量**平时没有采集** ——
+     * 与其在展示时从别处反推，不如在唯一知道"这局真的结束了"的地方一次记全。
+     */
+    fun recordRun(
+        ante: Int,
+        hand: Long,
+        won: Boolean,
+        score: Long,
+        money: Int,
+        hands: Long,
+        discards: Long,
+        stakeOrdinal: Int = 0,
+    ) {
         if (ante > bestAnte) bestAnte = ante
         if (hand > bestHand) bestHand = hand
+        if (score > bestScore) bestScore = score
+        if (money > bestMoney) bestMoney = money
+        if (hands > 0) totalHands += hands
+        if (discards > 0) totalDiscards += discards
         runs += 1
+
+        if (won) {
+            wins += 1
+            streak += 1
+            if (streak > bestStreak) bestStreak = streak
+            if (stakeOrdinal > bestStakeWon) bestStakeWon = stakeOrdinal
+        } else {
+            streak = 0
+        }
     }
+
+    /** 生涯成绩单：成就判定与"是否解锁"的唯一输入。 */
+    fun careerStats(seenJokers: Int = seenTotal): CareerStats = CareerStats(
+        runs = runs,
+        wins = wins,
+        bestAnte = bestAnte,
+        bestHand = bestHand,
+        bestScore = bestScore,
+        totalHands = totalHands,
+        totalDiscards = totalDiscards,
+        bestMoney = bestMoney,
+        streak = streak,
+        bestStreak = bestStreak,
+        seenJokers = seenJokers,
+        bestStakeWon = bestStakeWon,
+    )
+
+    // ---------------------------------------------------------------- 成就
+
+    /**
+     * 已达成成就的 id 集合。
+     *
+     * 只增不减，且不参与 [wipe] —— 和"见过"一样，是跨局的长期记录。
+     */
+    fun achievements(): Set<String> =
+        prefs.getStringSet(KEY_ACH, emptySet())?.toHashSet() ?: emptySet()
+
+    /** 合并写入，返回**本次新解锁**的条目（用于弹提示）。 */
+    fun addAchievements(ids: Iterable<String>): List<String> {
+        val cur = achievements().toHashSet()
+        val fresh = ArrayList<String>(2)
+        for (id in ids) {
+            if (id.isNotEmpty() && cur.add(id)) fresh += id
+        }
+        if (fresh.isNotEmpty()) prefs.edit().putStringSet(KEY_ACH, cur).apply()
+        return fresh
+    }
+
+    /** 按当前成绩单重新判定一遍，落盘并返回新解锁项。 */
+    fun refreshAchievements(): List<String> =
+        addAchievements(achievementsOf(careerStats()))
 
     // ---------------------------------------------------------------- 图鉴
 
@@ -160,6 +268,15 @@ class SaveStore(context: Context) {
         const val KEY_BEST_ANTE = "best_ante"
         const val KEY_BEST_HAND = "best_hand"
         const val KEY_RUNS = "runs"
+        const val KEY_WINS = "wins"
+        const val KEY_BEST_SCORE = "best_score"
+        const val KEY_TOTAL_HANDS = "total_hands"
+        const val KEY_TOTAL_DISCARDS = "total_discards"
+        const val KEY_BEST_MONEY = "best_money"
+        const val KEY_STREAK = "streak"
+        const val KEY_BEST_STREAK = "best_streak"
+        const val KEY_BEST_STAKE_WON = "best_stake_won"
+        const val KEY_ACH = "achievements"
         const val KEY_SEEN = "seen"
         const val KEY_MAX_STAKE = "max_stake"
         const val KEY_SFX = "sfx_level"

@@ -148,7 +148,7 @@ adb install -r dist/wristjoker.apk
 需要 **JDK 17** 与 **Android SDK Platform 36**（`compileSdk 36`，`minSdk 30`，`targetSdk 34` 对齐 Galaxy Watch7 出厂系统）。
 
 ```bash
-# 162 个 JVM 单元测试（纯逻辑，不需要模拟器）
+# 172 个 JVM 单元测试（纯逻辑，不需要模拟器）
 ./gradlew :app:testDebugUnitTest
 
 # 生成 release APK
@@ -163,7 +163,7 @@ adb install -r dist/wristjoker.apk
 
 | 项 | 结果 |
 | --- | --- |
-| 单元测试 | 162 个用例全通过（牌型边界、计分顺序、Boss 副作用、存档往返、内容量断言、圆弦几何、卡片文案映射、退出续局） |
+| 单元测试 | 172 个用例全通过（牌型边界、计分顺序、Boss 副作用、存档往返、内容量断言、圆弦几何、卡片文案映射、退出续局） |
 | 界面几何 | 15 个界面四角均不越界，最远 99.0dp / 阈值 104dp |
 | 卡片 | 服务已合入 APK 清单（`BIND_TILE_PROVIDER` + PREVIEW 缩略图），文案映射 8 个用例覆盖；渲染未在真机卡片列表里走过 |
 | 产物 | `assembleRelease` 成功，APK 可解析安装 |
@@ -180,7 +180,7 @@ app/src/main/java/com/wearos/wristjoker/
 ├── fx/            声音：合成音效、程序化爵士循环、震动
 ├── SaveStore.kt   本地存档 / 设置 / 解锁进度
 └── MainActivity.kt 导航与状态宿主
-app/src/test/      162 个 JVM 单测
+app/src/test/      172 个 JVM 单测
 tools/             圆屏几何校验、15 屏预览渲染、卡片缩略图、图标预览
 preview/           预览图
 dist/              发行 APK

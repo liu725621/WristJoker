@@ -13,6 +13,7 @@ import androidx.wear.protolayout.DimensionBuilders.sp
 import androidx.wear.protolayout.LayoutElementBuilders
 import androidx.wear.protolayout.LayoutElementBuilders.Box
 import androidx.wear.protolayout.LayoutElementBuilders.Column
+import androidx.wear.protolayout.LayoutElementBuilders.Row
 import androidx.wear.protolayout.LayoutElementBuilders.FontStyle
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
 import androidx.wear.protolayout.LayoutElementBuilders.Text
@@ -68,6 +69,36 @@ class JokerTileService : TileService() {
     // ---------------------------------------------------------------- 布局
 
     private fun root(snap: TileSnapshot): LayoutElementBuilders.LayoutElement {
+        // 主数字装进一个圆角面板，而不是直接摆在纯黑上。
+        //
+        // 这是三星系统卡片（「今日事件」「天气」）的做法：信息块有自己的一层
+        // 底色和圆角，整张卡就有"上面是标题、中间是一块内容、下面是一行注"
+        // 的三段层次，而不是四行字浮在同一个平面上。
+        val panel = Column.Builder()
+            .setWidth(dp(152f))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .setModifiers(
+                ModifiersBuilders.Modifiers.Builder()
+                    .setBackground(
+                        ModifiersBuilders.Background.Builder()
+                            .setColor(argb(if (snap.boss) BossPanel else Panel))
+                            .setCorner(ModifiersBuilders.Corner.Builder().setRadius(dp(10f)).build())
+                            .build()
+                    )
+                    .setPadding(
+                        ModifiersBuilders.Padding.Builder()
+                            .setStart(dp(8f))
+                            .setEnd(dp(8f))
+                            .setTop(dp(7f))
+                            .setBottom(dp(7f))
+                            .build()
+                    )
+                    .build()
+            )
+            .addContent(label(snap.big, 25f, Cream, bold = true, tracking = .02f))
+            .addContent(gap(2f))
+            .addContent(label(snap.sub, 10f, Dim))
+
         val content = Column.Builder()
             .setWidth(expand())
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
@@ -87,21 +118,38 @@ class JokerTileService : TileService() {
                     )
                     .build()
             )
-            .addContent(gap(6f))
+            .addContent(gap(5f))
             .addContent(label(snap.kicker, 10f, if (snap.boss) BossRed else Dim, tracking = .08f))
-            .addContent(gap(3f))
-            .addContent(label(snap.big, 25f, Cream, bold = true, tracking = .02f))
-            .addContent(gap(4f))
-            .addContent(label(snap.sub, 10f, Dim))
+            .addContent(gap(5f))
+            .addContent(panel.build())
 
-        // 只有牌桌态有"进度"这个概念：商店的金钱没有分母，硬画一条
-        // 满格进度条会让人以为"快赢了"。
+        // 进度条留在面板外：一条 4dp 的细线压在圆角块下方，
+        // 比塞进块里更"轻"，也不会把面板撑成正方形。
         if (snap.ratio >= 0f) {
-            content.addContent(gap(8f))
-            content.addContent(bar(snap.ratio))
+            content.addContent(gap(6f))
+            content.addContent(
+                Row.Builder()
+                    .setWidth(dp(152f))
+                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                    .addContent(bar(snap.ratio, 120f))
+                    .addContent(
+                        // 百分比：条是"大概到哪"，数字是"具体到哪"。
+                        // 圆屏上这两件事同时给，读起来比只有条快。
+                        Text.Builder()
+                            .setText(" ${(snap.ratio * 100).toInt()}%")
+                            .setFontStyle(
+                                FontStyle.Builder()
+                                    .setSize(sp(9f))
+                                    .setColor(argb(if (snap.ratio >= 1f) Green else Chip))
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            )
         }
         if (snap.meta.isNotEmpty()) {
-            content.addContent(gap(8f))
+            content.addContent(gap(6f))
             content.addContent(label(snap.meta, 9f, Dim))
         }
 
@@ -176,8 +224,7 @@ class JokerTileService : TileService() {
      * [ratio] 至少给 4dp 宽 —— 手气差的时候分数是 0，但一条完全没有的
      * 进度条会被误读成"布局没渲染出来"；留一小段反而说明"这局刚开始"。
      */
-    private fun bar(ratio: Float): LayoutElementBuilders.LayoutElement {
-        val full = 150f
+    private fun bar(ratio: Float, full: Float = 150f): LayoutElementBuilders.LayoutElement {
         val w = (full * ratio.coerceIn(0f, 1f)).coerceAtLeast(4f)
         return Box.Builder()
             .setWidth(dp(full))
@@ -225,6 +272,10 @@ class JokerTileService : TileService() {
         const val Dim = 0xFF9C927F.toInt()
         const val Chip = 0xFF5E9BB0.toInt()
         const val BossRed = 0xFFA8473A.toInt()
+        const val Green = 0xFF7FA184.toInt()
+        /** 面板底色：比卡片底亮一档，才看得出"这是一块内容"。 */
+        const val Panel = 0xFF312A23.toInt()
+        const val BossPanel = 0xFF3A241F.toInt()
 
         fun <T> immediate(v: T): ListenableFuture<T> =
             ResolvableFuture.create<T>().also { it.set(v) }

@@ -29,6 +29,7 @@ CREAM = (243, 238, 225)
 DIM = (156, 146, 127)
 CHIP = (94, 155, 176)
 BOSS_RED = (168, 71, 58)
+PANEL = (49, 42, 35)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -51,21 +52,34 @@ def card(run: bool) -> Image.Image:
 
     if run:
         # 顶部压印短线：1999 的印刷母题，顺便压住上面那块空
-        d.rectangle([CX - 9 * S, CY - 44 * S, CX + 9 * S, CY - 43 * S], fill=(59, 51, 42))
-        tx(d, "A III · 大盲", -35, 10, DIM, tracking=0.08)
+        d.rectangle([CX - 9 * S, CY - 59 * S, CX + 9 * S, CY - 58 * S], fill=(59, 51, 42))
+        tx(d, "A III \u00b7 \u5927\u76f2", -46.5, 10, DIM, tracking=0.08)
+
+        # 圆角面板：152 × 58，半径 10，底色比卡面亮一档
+        px0, py0 = CX - 76 * S, CY - 35.5 * S
+        px1, py1 = CX + 76 * S, CY + 22.5 * S
+        d.rounded_rectangle([px0, py0, px1, py1], radius=10 * S, fill=PANEL)
         tx(d, "12,480", -12, 25, CREAM, bold=True)
-        tx(d, "/ 1,800", 17, 10, DIM)
-        # 进度条：150 × 4，圆角 2，比例 0.62
-        x0 = CX - 75 * S
-        y0 = CY + 31 * S
-        d.rounded_rectangle([x0, y0, x0 + 150 * S, y0 + 4 * S], radius=2 * S, fill=SLOT)
-        d.rounded_rectangle([x0, y0, x0 + 93 * S, y0 + 4 * S], radius=2 * S, fill=CHIP)
-        tx(d, "$12 · 手 3 · 弃 2", 47, 9, DIM)
+        tx(d, "/ 1,800", 12, 10, DIM)
+
+        # 进度条：120 × 4，比例 0.62；右侧百分比
+        by = CY + 35.5 * S
+        bx0 = CX - 76 * S
+        d.rounded_rectangle([bx0, by - 2 * S, bx0 + 120 * S, by + 2 * S], radius=2 * S, fill=SLOT)
+        d.rounded_rectangle([bx0, by - 2 * S, bx0 + 74 * S, by + 2 * S], radius=2 * S, fill=CHIP)
+        d.text((CX + 58 * S, by), "62%", font=font(9), fill=CHIP, anchor="mm")
+
+        tx(d, "$12 \u00b7 \u624b 3 \u00b7 \u5f03 2", 52, 9, DIM)
     else:
-        d.rectangle([CX - 9 * S, CY - 41 * S, CX + 9 * S, CY - 40 * S], fill=(59, 51, 42))
-        tx(d, "腕上小丑", -27, 10, DIM, tracking=0.08)
-        tx(d, "轻触开局", -1, 22, CREAM, bold=True)
-        tx(d, "没有进行中的一局", 24, 10, DIM)
+        d.rectangle([CX - 9 * S, CY - 59 * S, CX + 9 * S, CY - 58 * S], fill=(59, 51, 42))
+        tx(d, "\u8155\u4e0a\u5c0f\u4e11", -46.5, 10, DIM, tracking=0.08)
+        # 空态也用面板，只是里面只有一句提示 —— 保证"加了卡片"与"没加"两种
+        # 情况在列表里的缩略图是同一个视觉体系。
+        d.rounded_rectangle(
+            [CX - 76 * S, CY - 30 * S, CX + 76 * S, CY + 20 * S], radius=10 * S, fill=PANEL
+        )
+        tx(d, "\u8f7b\u89e6\u5f00\u5c40", -12, 22, CREAM, bold=True)
+        tx(d, "\u6ca1\u6709\u8fdb\u884c\u4e2d\u7684\u4e00\u5c40", 12, 10, DIM)
 
     return img
 

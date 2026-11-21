@@ -63,6 +63,7 @@ object SaveCodec {
         append("shopc|").append(s.shop.cards.joinToString(",") { encodeShop(it) }).append('\n')
         append("shopb|").append(s.shop.boosters.joinToString(",") { encodeShop(it) }).append('\n')
         append("shopv|").append(s.shop.vouchers.joinToString(",") { encodeShop(it) }).append('\n')
+        append("shopl|").append(s.shop.locked.sorted().joinToString(",")).append('\n')
         append("reroll|").append(s.rerollCost).append('\n')
         append("cash|").append(s.cashOut?.let { encodeCash(it) } ?: "").append('\n')
         append("hp|").append(s.handsPlayed).append('\n')
@@ -126,7 +127,7 @@ object SaveCodec {
     private fun encodeCash(c: CashOutDetail): String = listOf(
         c.ante, c.blindKind.ordinal, c.score, c.target, c.baseReward,
         c.handsLeft, c.handBonus, c.interest, c.handyBonus,
-        if (c.doubleTag) 1 else 0, c.walletBonus, c.total,
+        if (c.doubleTag) 1 else 0, c.walletBonus, c.total, c.jokerBonus,
     ).joinToString("~")
 
     // ---------------------------------------------------------------- 解码
@@ -205,6 +206,9 @@ object SaveCodec {
                 .mapNotNull { decodeShop(it) },
             vouchers = map["shopv"].orEmpty().split(',').filter { it.isNotBlank() }
                 .mapNotNull { decodeShop(it) },
+            // v2 内追加：旧档没有这一行，缺省即"一个都没锁"
+            locked = map["shopl"].orEmpty().split(',').filter { it.isNotBlank() }
+                .mapNotNull { it.toIntOrNull() }.toSet(),
         )
 
         return RunState(
@@ -349,6 +353,8 @@ object SaveCodec {
             doubleTag = n[9] == 1,
             walletBonus = n[10],
             total = n[11],
+            // 旧档只有 12 段，缺这一段就当 0
+            jokerBonus = n.getOrNull(12) ?: 0,
         )
     }
 

@@ -15,8 +15,8 @@ android {
         // targetSdk 对齐真机 34，避免在 Wear OS 5 上走未验证的新行为。
         minSdk = 30
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.4-watch"
+        versionCode = 7
+        versionName = "1.6-watch"
     }
 
     buildTypes {
@@ -64,6 +64,10 @@ dependencies {
     // TileService 的回调要返回 ListenableFuture。tiles 只把 concurrent-futures
     // 当运行时依赖带进来，编译期拿不到 ResolvableFuture，所以显式声明一次。
     implementation("androidx.concurrent:concurrent-futures:1.1.0")
+
+    // 表盘小部件（Complication）：把手游的"当前底注 / 分数"做成表盘上的一格。
+    // 和 Tile 是两种不同的入口 —— Tile 要右滑，Complication 就在表盘上。
+    implementation("androidx.wear.watchface:watchface-complications-data-source:1.2.1")
 
     // 游戏核心逻辑是纯 Kotlin，单元测试只依赖 JUnit。
     testImplementation("junit:junit:4.13.2")

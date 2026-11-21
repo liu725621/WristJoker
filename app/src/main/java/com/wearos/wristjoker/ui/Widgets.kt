@@ -107,13 +107,25 @@ fun CasinoButton(
  * 刻度不是装饰：原版的进度条让玩家一眼估出「还差几次出牌」，
  * 没有刻度就只能在心里做除法。
  */
+/**
+ * 目标进度条。
+ *
+ * [preview] 是"这一手打下去会到哪"的第二层 —— 原版左侧的预估分是纯数字，
+ * 但手表屏太窄，数字与进度条只能二选一；把预估画成条，两个问题一次说完：
+ * 选牌时玩家不用心算，也能看见"打完就够"还是"还差一截"。
+ */
 @Composable
-fun ScoreBar(progress: Float, modifier: Modifier = Modifier) {
+fun ScoreBar(progress: Float, modifier: Modifier = Modifier, preview: Float = 0f) {
     val shape = RoundedCornerShape(2.dp)
     val p by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = tween(320),
         label = "bar",
+    )
+    val pv by animateFloatAsState(
+        targetValue = preview.coerceIn(0f, 1f),
+        animationSpec = tween(200),
+        label = "barPreview",
     )
     Box(
         modifier
@@ -122,6 +134,15 @@ fun ScoreBar(progress: Float, modifier: Modifier = Modifier) {
             .background(Pal.FeltDark)
             .border(0.8.dp, Pal.CardEdge, shape),
     ) {
+        // 预览层先画：它比实际进度长出来的那截才是"这一手能走多远"
+        if (pv > p) {
+            Box(
+                Modifier
+                    .fillMaxWidth(pv)
+                    .fillMaxHeight()
+                    .background(Pal.Green.copy(alpha = .5f)),
+            )
+        }
         if (p > 0f) {
             Box(
                 Modifier

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -25,7 +26,10 @@ import com.wearos.wristjoker.game.ConsumableKind
 import com.wearos.wristjoker.game.Enhancement
 import com.wearos.wristjoker.game.Edition
 import com.wearos.wristjoker.game.HandType
+import com.wearos.wristjoker.game.JokerDef
+import com.wearos.wristjoker.game.Jokers
 import com.wearos.wristjoker.game.Rank
+import com.wearos.wristjoker.game.Rarity
 import com.wearos.wristjoker.game.Seal
 import com.wearos.wristjoker.game.Suit
 import com.wearos.wristjoker.game.Voucher
@@ -494,8 +498,119 @@ private fun DrawScope.pixelGrid(draw: DrawScope.(px: (Int, Int, Color, Int, Int)
     this.draw(px)
 }
 
+/**
+ * 头像徽记类别：不再用「按 id 哈希随机画一张脸」，而是按**这张小丑在干什么**
+ * 挑一个稳定的矢量符号。缩到 13–15dp 也能一眼看出「加钱的 / 加倍的 / 涨筹码的」。
+ */
+private enum class JokerGlyph { CHIPS, ADD, TIMES, COIN, CLOVER, FAN, SUIT, DISCARD, CROWN, HAT }
+
+/** 保留手绘的 18 张「脸」类小丑（jolly/zany/mad…），它们本就是角色，不是参数表。 */
+private val HAND_DRAWN_IDS = setOf(
+    "joker", "sly", "jolly", "zany", "mad", "clever", "greedy", "lusty", "wrathful",
+    "gluttonous", "even", "odd", "abstract", "banner", "photograph", "blackboard",
+    "baron", "obelisk",
+)
+
+private fun glyphFor(def: JokerDef): JokerGlyph {
+    val d = def.desc
+    return when {
+        def.rarity == Rarity.LEGENDARY -> JokerGlyph.CROWN
+        d.contains('$') || d.contains("钱") -> JokerGlyph.COIN
+        d.contains("筹码") -> JokerGlyph.CHIPS
+        d.contains("弃") -> JokerGlyph.DISCARD
+        d.contains("幸运") -> JokerGlyph.CLOVER
+        d.contains("×") -> JokerGlyph.TIMES
+        d.contains("+") -> JokerGlyph.ADD
+        d.contains("人头") || d.contains("黑桃") || d.contains("红桃") ||
+            d.contains("梅花") || d.contains("方块") -> JokerGlyph.SUIT
+        d.contains("对子") || d.contains("两对") || d.contains("三条") || d.contains("顺子") ||
+            d.contains("同花") || d.contains("葫芦") || d.contains("四条") -> JokerGlyph.FAN
+        else -> JokerGlyph.HAT
+    }
+}
+
+private fun DrawScope.drawJokerGlyph(g: JokerGlyph) {
+    val u = size.minDimension / 8f
+    val ox = (size.width - u * 8) / 2f
+    val oy = (size.height - u * 8) / 2f
+    fun X(c: Float) = ox + c * u
+    fun Y(c: Float) = oy + c * u
+    val r = CornerRadius(u * 0.5f)
+    when (g) {
+        JokerGlyph.CHIPS -> { // 筹码：三根横条
+            for (i in 0..2) {
+                val yy = Y(2.4f + i * 1.7f)
+                drawRoundRect(Pal.Chip, Offset(X(1.4f), yy), Size(u * 5.2f, u * 1.3f), r)
+            }
+        }
+        JokerGlyph.ADD -> { // 加号
+            drawRect(Pal.Mult, Offset(X(3.55f), Y(1.9f)), Size(u * 0.9f, u * 4.2f))
+            drawRect(Pal.Mult, Offset(X(1.9f), Y(3.55f)), Size(u * 4.2f, u * 0.9f))
+        }
+        JokerGlyph.TIMES -> { // 乘号
+            drawLine(Pal.Mult, Offset(X(1.6f), Y(1.6f)), Offset(X(6.4f), Y(6.4f)), strokeWidth = u * 0.85f)
+            drawLine(Pal.Mult, Offset(X(6.4f), Y(1.6f)), Offset(X(1.6f), Y(6.4f)), strokeWidth = u * 0.85f)
+        }
+        JokerGlyph.COIN -> { // 硬币
+            drawCircle(Pal.Money, radius = u * 2.7f, center = Offset(X(4f), Y(4f)))
+            drawCircle(Pal.SurfaceHigh, radius = u * 1.5f, center = Offset(X(4f), Y(4f)))
+            drawRect(Pal.Money, Offset(X(3.55f), Y(3.1f)), Size(u * 0.9f, u * 1.8f))
+        }
+        JokerGlyph.CLOVER -> { // 三叶草
+            drawCircle(Pal.Green, radius = u * 1.15f, center = Offset(X(4f), Y(2.7f)))
+            drawCircle(Pal.Green, radius = u * 1.15f, center = Offset(X(2.6f), Y(4.1f)))
+            drawCircle(Pal.Green, radius = u * 1.15f, center = Offset(X(5.4f), Y(4.1f)))
+            drawRect(Pal.Green, Offset(X(3.7f), Y(4.5f)), Size(u * 0.6f, u * 2.3f))
+        }
+        JokerGlyph.FAN -> { // 一张牌
+            drawRoundRect(Pal.CardFace, Offset(X(2f), Y(1.5f)), Size(u * 4f, u * 5f), r)
+            drawSuitShape(Suit.DIAMOND, Pal.SuitRed, X(3f), Y(2.7f), u * 2f, u * 2.6f)
+        }
+        JokerGlyph.SUIT -> { // 红桃
+            drawSuitShape(Suit.HEART, Pal.SuitRed, X(2f), Y(1.6f), u * 4f, u * 4.8f)
+        }
+        JokerGlyph.DISCARD -> { // 一张牌 + 飞走的箭头
+            drawRoundRect(Pal.CardEdge, Offset(X(1.4f), Y(2f)), Size(u * 3.6f, u * 4f), r)
+            drawLine(Pal.WineRed, Offset(X(5.2f), Y(4f)), Offset(X(6.5f), Y(4f)), strokeWidth = u * 0.55f)
+            val p = Path().apply {
+                moveTo(X(6.5f), Y(3.4f)); lineTo(X(7.1f), Y(4f)); lineTo(X(6.5f), Y(4.6f)); close()
+            }
+            drawPath(p, Pal.WineRed)
+        }
+        JokerGlyph.CROWN -> { // 皇冠
+            val p = Path().apply {
+                moveTo(X(1.6f), Y(6.1f)); lineTo(X(1.6f), Y(3.1f))
+                lineTo(X(3f), Y(4.6f)); lineTo(X(4f), Y(2.1f))
+                lineTo(X(5f), Y(4.6f)); lineTo(X(6.4f), Y(3.1f))
+                lineTo(X(6.4f), Y(6.1f)); close()
+            }
+            drawPath(p, Pal.Money)
+            drawRect(Pal.Money, Offset(X(1.6f), Y(6.1f)), Size(u * 4.8f, u * 0.8f))
+        }
+        JokerGlyph.HAT -> { // 双角小丑帽
+            val p = Path().apply {
+                moveTo(X(1.4f), Y(5.3f))
+                cubicTo(X(1.1f), Y(3.1f), X(2.3f), Y(2.2f), X(3f), Y(3.4f))
+                cubicTo(X(3.5f), Y(1.9f), X(4.5f), Y(1.9f), X(5f), Y(3.4f))
+                cubicTo(X(5.7f), Y(2.2f), X(6.9f), Y(3.1f), X(6.6f), Y(5.3f))
+                close()
+            }
+            drawPath(p, Pal.Purple)
+            drawRect(Pal.Purple, Offset(X(1.4f), Y(5.2f)), Size(u * 5.2f, u * 1.3f))
+        }
+    }
+}
+
 @Composable
 fun JokerPortrait(id: String, modifier: Modifier = Modifier) {
+    val def = Jokers.ALL.firstOrNull { it.id == id }
+    if (def != null && id !in HAND_DRAWN_IDS) {
+        Canvas(modifier) {
+            drawRect(Pal.SurfaceHigh)
+            drawJokerGlyph(glyphFor(def))
+        }
+        return
+    }
     Canvas(modifier) {
         val K = Pal.CardEdge
         val W = Pal.CardFace

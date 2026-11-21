@@ -157,6 +157,7 @@ private fun ShopSection(
     money: Int,
     empty: String,
     onOpenDetail: (DetailTarget) -> Unit,
+    locked: Set<Int> = emptySet(),
 ) {
     Row(
         Modifier.width(width.dp).height(height.dp),
@@ -189,6 +190,7 @@ private fun ShopSection(
                 wide = wide,
                 onClick = { onOpenDetail(DetailTarget.ShopEntry(section, i, item)) },
                 modifier = Modifier.weight(1f).fillMaxHeight(),
+                locked = section == 0 && i in locked,
             )
         }
     }
@@ -202,9 +204,11 @@ private fun ShopTile(
     wide: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    locked: Boolean = false,
 ) {
     val edge = when {
         item.sold -> Pal.FeltHi
+        locked -> Pal.Chip
         item is ShopItem.JokerItem -> rarityColorOf(item.inst.rarity)
         item is ShopItem.ConsumableItem -> Pal.Purple
         item is ShopItem.BoosterItem -> Pal.Chip
@@ -226,6 +230,16 @@ private fun ShopTile(
             .clickable(enabled = !item.sold, onClick = onClick)
             .padding(1.5.dp),
     ) {
+        if (locked) {
+            // 锁角标：2dp 的小方块，比画一把锁更能在 6dp 高度里认出来
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .size(4.dp)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(Pal.Chip),
+            )
+        }
         if (wide) {
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -402,6 +416,7 @@ fun ShopScreen(
                 money = ui.money,
                 empty = "这一格空了 · 重掷试试",
                 onOpenDetail = onOpenDetail,
+                locked = ui.shop.locked,
             )
 
             Spacer(Modifier.height(bands[2].gap.dp))
@@ -544,10 +559,16 @@ private fun EmptyHint(text: String) {
 
 /** 一格商品。图标是唯一的类型标识：小丑头像 / 消耗品卡 / 包 / 金色票。 */
 @Composable
-private fun ShopRow(item: ShopItem, affordable: Boolean, onClick: () -> Unit) {
+private fun ShopRow(
+    item: ShopItem,
+    affordable: Boolean,
+    onClick: () -> Unit,
+    locked: Boolean = false,
+) {
     val shape = RoundedCornerShape(3.dp)
     val edge = when {
         item.sold -> Pal.FeltHi
+        locked -> Pal.Chip
         item is ShopItem.JokerItem -> rarityColorOf(item.inst.rarity)
         item is ShopItem.ConsumableItem -> Pal.Purple
         item is ShopItem.BoosterItem -> Pal.Chip
@@ -830,6 +851,10 @@ fun DetailOverlay(
     onUse: (DetailTarget) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 商店里被锁住的商品位；锁只对"商品"区（section 0）有意义。 */
+    lockedShop: Set<Int> = emptySet(),
+    onLock: (Int) -> Unit = {},
+    onSellConsumable: (Int) -> Unit = {},
 ) {
     var confirming by remember(target) { mutableStateOf(false) }
     var tick by remember(target) { mutableIntStateOf(0) }
@@ -957,18 +982,40 @@ fun DetailOverlay(
                     is DetailTarget.ShopEntry -> {
                         val it0 = target.item
                         val canBuy = !it0.sold && money >= it0.price
-                        CasinoButton(
-                            label = when {
-                                it0.sold -> "已售出"
-                                money < it0.price -> "差 \$${it0.price - money}"
-                                else -> "买入 \$${it0.price}"
-                            },
-                            enabled = canBuy,
-                            accent = Pal.Money,
-                            onClick = { onBuy(target) },
-                            modifier = Modifier.width((L.w[4] * .52f).dp),
-                            height = 24,
-                        )
+                        val lockable = target.section == 0 && !it0.sold
+                        val locked = target.index in lockedShop
+                        Row(
+                            Modifier.width(L.w[4].dp).height(24.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CasinoButton(
+                                label = when {
+                                    it0.sold -> "已售出"
+                                    money < it0.price -> "差 \$${it0.price - money}"
+                                    else -> "买入 \$${it0.price}"
+                                },
+                                enabled = canBuy,
+                                accent = Pal.Money,
+                                onClick = { onBuy(target) },
+                                modifier = Modifier.width((L.w[4] * if (lockable) .38f else .52f).dp),
+                                height = 24,
+                            )
+                            if (lockable) {
+                                Spacer(Modifier.width(5.dp))
+                                // 锁：只对商品区开放。锁住之后重掷不会换掉这一格，
+                                // 是"攒钱买贵牌"唯一的抓手（原版收费 $1，这里免了）。
+                                CasinoButton(
+                                    label = if (locked) "解锁" else "锁定",
+                                    enabled = true,
+                                    accent = Pal.Chip,
+                                    onClick = { onLock(target.index) },
+                                    modifier = Modifier.width((L.w[4] * .3f).dp),
+                                    filled = locked,
+                                    height = 24,
+                                )
+                            }
+                        }
                     }
                     is DetailTarget.OwnedJoker -> {
                         CasinoButton(
@@ -984,14 +1031,35 @@ fun DetailOverlay(
                         )
                     }
                     is DetailTarget.OwnedConsumable -> {
-                        CasinoButton(
-                            label = "使用",
-                            enabled = true,
-                            accent = Pal.Purple,
-                            onClick = { onUse(target) },
-                            modifier = Modifier.width((L.w[4] * .52f).dp),
-                            height = 24,
-                        )
+                        Row(
+                            Modifier.width(L.w[4].dp).height(24.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CasinoButton(
+                                label = "使用",
+                                enabled = true,
+                                accent = Pal.Purple,
+                                onClick = { onUse(target) },
+                                modifier = Modifier.width((L.w[4] * .38f).dp),
+                                height = 24,
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            // 卖消耗品：手表上塔罗/行星买多了会占满两个槽，
+                            // 原版能卖，这里之前只能"用掉或占着"。
+                            CasinoButton(
+                                label = if (confirming) "确认 +\$1" else "卖掉",
+                                enabled = true,
+                                accent = Pal.Chip,
+                                onClick = {
+                                    if (confirming) onSellConsumable(target.index)
+                                    else { confirming = true; tick++ }
+                                },
+                                modifier = Modifier.width((L.w[4] * .3f).dp),
+                                filled = false,
+                                height = 24,
+                            )
+                        }
                     }
                 }
             }

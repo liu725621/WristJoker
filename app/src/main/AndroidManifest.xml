@@ -62,6 +62,32 @@
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/tile_preview" />
         </service>
+
+        <!--
+            表盘小部件（Complication）：当前底注 + 分数进度。
+
+            和 Tile 是两条路：Tile 要右滑一次，Complication 在表盘上就有。
+            权限与 action 用的是 framework 的旧命名空间（android.support.wearable），
+            这是 Complication 数据源协议本身的字符串，不是我们可以改的 ——
+            写成 androidx.* 系统会找不到这个源。
+        -->
+        <service
+            android:name=".complication.JokerComplicationService"
+            android:exported="true"
+            android:label="@string/tile_name"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,RANGED_VALUE" />
+            <!-- 300 秒是系统允许的最短周期。一局十几分钟，五分钟一次的
+                 "还差多少"已经够用；再密会明显吃续航。 -->
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="300" />
+        </service>
     </application>
 
 </manifest>

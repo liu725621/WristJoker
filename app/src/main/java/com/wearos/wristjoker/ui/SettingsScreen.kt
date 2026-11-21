@@ -14,9 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -62,7 +67,18 @@ fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    RoundPage(SETTINGS, modifier) { L ->
+    // 表冠选行：五行都看得见，但手指去点会遮住"值"这一列 ——
+    // 转表冠移动高亮行、点行改值，手指就不必压在正在看的数字上。
+    var sel by remember { mutableIntStateOf(0) }
+    val rows = 5
+    RoundPage(
+        SETTINGS,
+        modifier.onRotaryScrollEvent { e ->
+            val step = if (e.verticalScrollPixels > 0) 1 else -1
+            sel = (sel + step).coerceIn(0, rows - 1)
+            true
+        },
+    ) { L ->
         BandRow(L.w[0], L.h[0]) {
             T("设置", Type.Medium.copy(fontSize = 11.sp, color = Pal.Money))
             T("即时生效", Type.TinyMono.copy(color = Pal.Dim, fontSize = 6.sp))
@@ -75,6 +91,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 SettingRow(
+                    focused = sel == 0,
                     label = "音乐",
                     hint = "程序化爵士",
                     value = MUSIC_LABELS[musicLevel.coerceIn(0, 3)],
@@ -82,6 +99,7 @@ fun SettingsScreen(
                     onClick = { onMusic((musicLevel + 1) % 4) },
                 )
                 SettingRow(
+                    focused = sel == 1,
                     label = "音效",
                     hint = "合成音",
                     value = SFX_LABELS[sfxLevel.coerceIn(0, 3)],
@@ -89,6 +107,7 @@ fun SettingsScreen(
                     onClick = { onSfx((sfxLevel + 1) % 4) },
                 )
                 SettingRow(
+                    focused = sel == 2,
                     label = "震屏",
                     hint = "触觉层",
                     value = if (hapticsOn) "开" else "关",
@@ -96,6 +115,7 @@ fun SettingsScreen(
                     onClick = { onHaptics(!hapticsOn) },
                 )
                 SettingRow(
+                    focused = sel == 3,
                     label = "扫描线",
                     hint = "CRT 强度",
                     value = CRT_LABELS[crtLevel.coerceIn(0, 3)],
@@ -103,6 +123,7 @@ fun SettingsScreen(
                     onClick = { onCrt((crtLevel + 1) % 4) },
                 )
                 SettingRow(
+                    focused = sel == 4,
                     label = "节奏",
                     hint = "结算动画",
                     value = SPEED_LABELS[animSpeed.coerceIn(0, 2)],
@@ -140,6 +161,7 @@ private fun SettingRow(
     value: String,
     accent: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
+    focused: Boolean = false,
 ) {
     val shape = RoundedCornerShape(3.dp)
     Row(
@@ -147,8 +169,13 @@ private fun SettingRow(
             .fillMaxWidth()
             .height(18.dp)
             .clip(shape)
-            .background(Pal.Surface)
-            .border(1.dp, accent.copy(alpha = .45f), shape)
+            // 表冠选中的行加亮一档：底色与描边同时提，单改描边在 18dp 高度里看不出来
+            .background(if (focused) Pal.SurfaceHigh else Pal.Surface)
+            .border(
+                if (focused) 1.4.dp else 1.dp,
+                if (focused) accent else accent.copy(alpha = .45f),
+                shape,
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 5.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -14,10 +14,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.wearos.wristjoker.fx.Haptics
 import com.wearos.wristjoker.fx.Music
 import com.wearos.wristjoker.fx.Sfx
+import com.wearos.wristjoker.game.Ach
 import com.wearos.wristjoker.game.GameEngine
 import com.wearos.wristjoker.game.GameUi
 import com.wearos.wristjoker.game.PackContent
@@ -26,6 +28,10 @@ import com.wearos.wristjoker.game.ShopItem
 import com.wearos.wristjoker.game.SortMode
 import com.wearos.wristjoker.tile.TileRefresh
 import com.wearos.wristjoker.ui.BlindSelectScreen
+import com.wearos.wristjoker.ui.CareerScreen
+import com.wearos.wristjoker.ui.AchBanner
+import com.wearos.wristjoker.ui.AchievementsScreen
+import com.wearos.wristjoker.ui.SeedScreen
 import com.wearos.wristjoker.ui.CashOutScreen
 import com.wearos.wristjoker.ui.ChallengeScreen
 import com.wearos.wristjoker.ui.CollectionScreen
@@ -126,6 +132,20 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
     var sortMode by remember { mutableStateOf(SortMode.RANK) }
     var seen by remember { mutableStateOf(store.seen()) }
     var maxStake by remember { mutableIntStateOf(store.maxStake) }
+    /** 刚解锁的成就：非空时在顶部压一条横幅，3 秒后自己消失。 */
+    var achToast by remember { mutableStateOf<Ach?>(null) }
+    /** 生涯成绩单：商店稀有档与牌组解锁读它。 */
+    var career by remember { mutableStateOf(store.careerStats(store.seenTotal)) }
+
+    // 引擎开局前就要拿到生涯快照，否则第一局的商店池是"全开"的
+    LaunchedEffect(Unit) { engine.career = career }
+
+    LaunchedEffect(achToast) {
+        if (achToast != null) {
+            kotlinx.coroutines.delay(3200)
+            achToast = null
+        }
+    }
 
     // 设置项：一轮生命周期内只从磁盘读一次，之后即时生效
     var musicLevel by remember { mutableIntStateOf(store.musicLevel) }
@@ -179,13 +199,29 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
 
         if ((ui.phase == Phase.GAME_OVER || ui.phase == Phase.WIN) && !recorded) {
             recorded = true
-            store.recordRun(ui.ante, ui.bestHand)
+            store.recordRun(
+                ante = ui.ante,
+                hand = ui.bestHand,
+                won = ui.phase == Phase.WIN,
+                score = ui.score,
+                money = ui.money,
+                hands = ui.handsPlayed.toLong(),
+                discards = ui.discardsTotal.toLong(),
+                stakeOrdinal = ui.stake.ordinal,
+            )
             // 通关（不是失败）才解锁下一档赌注。无尽模式也走 WIN，
             // 所以打通一次就能继续往上，不需要单独再赢一遍。
             if (ui.phase == Phase.WIN) {
                 store.unlockNextStake(ui.stake)
                 maxStake = store.maxStake
             }
+            // 成就：重新判定一遍，把"刚解锁"的那几条弹出来
+            val fresh = store.refreshAchievements()
+            if (fresh.isNotEmpty()) {
+                achToast = Ach.ALL.firstOrNull { it.id == fresh.first() }
+            }
+            // 成绩单变了 → 商店池与牌组解锁跟着变，引擎拿新快照
+            engine.career = store.careerStats()
             store.wipe()
             engine.hasSave = false
         }
@@ -213,6 +249,9 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                     // 下次启动会被旧档"复活"回上一局，玩家会以为点错了按钮。
                     store.wipe()
                     engine.hasSave = false
+                    // 生涯可能在上一局结束时变过（解锁了新牌组），重新取一次
+                    career = store.careerStats(store.seenTotal)
+                    engine.career = career
                     engine.toDeckSelect()
                     refresh()
                 },
@@ -227,11 +266,21 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                     overlay = Overlay.COLLECTION
                 },
                 onSettings = { overlay = Overlay.SETTINGS },
+                onCareer = {
+                    career = store.careerStats(store.seenTotal)
+                    overlay = Overlay.CAREER
+                },
+                onAchievements = {
+                    seen = store.seen()
+                    overlay = Overlay.ACH
+                },
+                onSeed = { overlay = Overlay.SEED },
             )
 
             Phase.DECK_SELECT -> DeckSelectScreen(
                 stake = ui.stake,
                 maxStake = maxStake,
+                bestAnte = career.bestAnte,
                 onStake = { engine.setStake(it); refresh() },
                 onPick = { deck ->
                     engine.startRun(deck, ui.stake)
@@ -438,6 +487,22 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                     refresh()
                 },
                 onDismiss = { detail = null },
+                lockedShop = ui.shop.locked,
+                onLock = { i ->
+                    if (engine.toggleLock(i)) {
+                        Sfx.play(Sfx.Kind.SELECT, .7f)
+                        Haptics.tap(1)
+                    }
+                    refresh()
+                },
+                onSellConsumable = { i ->
+                    if (engine.sellConsumable(i)) {
+                        Sfx.play(Sfx.Kind.SELL, .7f)
+                        Haptics.tap(1)
+                    }
+                    detail = null
+                    refresh()
+                },
             )
         }
 
@@ -488,6 +553,39 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                         playedTypes = ui.playedTypes,
                         onBack = { overlay = null },
                     )
+                    Overlay.CAREER -> CareerScreen(
+                        stats = career,
+                        onBack = { overlay = null },
+                    )
+                    Overlay.ACH -> AchievementsScreen(
+                        earned = store.achievements(),
+                        onBack = { overlay = null },
+                    )
+                    Overlay.SEED -> SeedScreen(
+                        seed = ui.seed,
+                        dailyKey = dailyKey(),
+                        onStart = { s ->
+                            val deck = ui.deckType
+                            store.wipe()
+                            engine.hasSave = false
+                            engine.startRun(deck, ui.stake, seedOverride = s)
+                            overlay = null
+                            Sfx.play(Sfx.Kind.DEAL)
+                            Haptics.tap(2)
+                            refresh()
+                        },
+                        onDaily = {
+                            val deck = ui.deckType
+                            store.wipe()
+                            engine.hasSave = false
+                            engine.startDaily(deck, dailyKey())
+                            overlay = null
+                            Sfx.play(Sfx.Kind.DEAL)
+                            Haptics.tap(2)
+                            refresh()
+                        },
+                        onBack = { overlay = null },
+                    )
                     null -> Unit
                 }
             }
@@ -517,11 +615,33 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
         }
 
         CrtOverlay(Modifier.fillMaxSize(), crtLevel)
+
+        // 成就横幅压在最上层（含 CRT 之上）：它是"刚刚发生"的通知，
+        // 不该被扫描线削弱对比度，也不该被任何面板盖住。
+        achToast?.let { a ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                AchBanner(a)
+            }
+        }
     }
 }
 
 /** 菜单上的两个全屏覆盖层。 */
-private enum class Overlay { COLLECTION, SETTINGS, DECK, INFO }
+private enum class Overlay { COLLECTION, SETTINGS, DECK, INFO, CAREER, ACH, SEED }
+
+/**
+ * 每日挑战的日期键：`20261121`。
+ *
+ * 用本地时区而不是 UTC —— 玩家眼里的"今天"就是手表上的今天，
+ * 若按 UTC 算，东八区的人在早上八点前会看到昨天的种子，
+ * 这种"每天不一样但不是我以为的那天"比不统一更难受。
+ */
+private fun dailyKey(): Int {
+    val c = java.util.Calendar.getInstance()
+    return c.get(java.util.Calendar.YEAR) * 10000 +
+        (c.get(java.util.Calendar.MONTH) + 1) * 100 +
+        c.get(java.util.Calendar.DAY_OF_MONTH)
+}
 
 /**
  * 把一帧 UI 快照里"出现过"的图鉴 id 全部收集起来。

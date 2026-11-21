@@ -194,46 +194,46 @@ object Jokers {
     val ALL: List<JokerDef> = listOf(
         // ================= 固定加成 =================
         joker("joker", "小丑", "+4 倍率", Rarity.COMMON, 2, addMult = { 4 }),
-        joker("half", "半个小丑", "出 ≤3 张 +20 倍率", Rarity.COMMON, 5,
+        joker("half", "半张小丑", "出 ≤3 张 +20 倍率", Rarity.COMMON, 5,
             addMult = { if (it.played.size <= 3) 20 else 0 }),
-        joker("misprint", "印错", "随机 +0~23 倍率", Rarity.COMMON, 4,
+        joker("misprint", "印错小丑", "随机 +0~23 倍率", Rarity.COMMON, 4,
             addMult = { 12 }),
         joker("abstract", "抽象小丑", "每小丑 +3 倍率", Rarity.COMMON, 4,
             addMult = { it.jokerCount * 3 }),
         joker("banner", "旗帜", "每弃牌 +30 筹码", Rarity.COMMON, 5,
             chips = { it.discardsLeft * 30 }),
-        joker("mystic", "神秘山顶", "弃牌为 0 时 +15 倍率", Rarity.COMMON, 5,
+        joker("mystic", "神秘之峰", "弃牌为 0 时 +15 倍率", Rarity.COMMON, 5,
             addMult = { if (it.discardsLeft == 0) 15 else 0 }),
         joker("blue", "蓝色小丑", "牌堆每张 +2 筹码", Rarity.COMMON, 5,
             chips = { it.deckLeft * 2 }),
-        joker("scary", "恐怖脸", "人头牌 +30 筹码", Rarity.COMMON, 4,
+        joker("scary", "恐怖面孔", "人头牌 +30 筹码", Rarity.COMMON, 4,
             chips = { it.faces() * 30 }),
-        joker("smiley", "笑脸", "人头牌 +5 倍率", Rarity.COMMON, 4,
+        joker("smiley", "微笑表情", "人头牌 +5 倍率", Rarity.COMMON, 4,
             addMult = { it.faces() * 5 }),
         joker("scholar", "学者", "A +20 筹码 +4 倍率", Rarity.COMMON, 4,
             chips = { it.rankCount(14) * 20 },
             addMult = { it.rankCount(14) * 4 }),
         joker("fib", "斐波那契", "A/2/3/5/8 +8 倍率", Rarity.UNCOMMON, 8,
             addMult = { ctx -> ctx.scoring.count { it.rank.order in setOf(2, 3, 5, 8, 14) } * 8 }),
-        joker("even", "偶数史蒂文", "偶数 +4 倍率", Rarity.UNCOMMON, 4,
+        joker("even", "偶数史蒂文", "偶数 +4 倍率", Rarity.COMMON, 4,
             addMult = { ctx -> ctx.scoring.count { it.rank.order in 2..10 && it.rank.order % 2 == 0 } * 4 }),
-        joker("odd", "奇数托德", "奇数 +31 筹码", Rarity.UNCOMMON, 4,
+        joker("odd", "奇数托德", "奇数 +31 筹码", Rarity.COMMON, 4,
             chips = { ctx -> ctx.scoring.count { it.rank.order <= 10 && it.rank.order % 2 == 1 } * 31 }),
         joker("supernova", "超新星", "每出过该牌型 +1 倍率", Rarity.COMMON, 5,
             addMult = { it.level * 4 }),
         joker("icecream", "冰淇淋", "起步 +100 筹码，每手 -5", Rarity.COMMON, 5,
             chips = { (100 - it.handsPlayed * 5).coerceAtLeast(0) }),
-        joker("runner", "跑者", "顺子每张 +15 筹码", Rarity.COMMON, 5,
+        joker("runner", "跑步选手", "顺子每张 +15 筹码", Rarity.COMMON, 5,
             chips = { if (it.handType == HandType.STRAIGHT || it.handType == HandType.STRAIGHT_FLUSH) it.scoring.size * 15 else 0 }),
-        joker("square", "方块小丑", "正好 4 张 +4 筹码/张", Rarity.COMMON, 4,
+        joker("square", "方形小丑", "正好 4 张 +4 筹码/张", Rarity.COMMON, 4,
             chips = { if (it.played.size == 4) 16 else 0 }),
-        joker("trousers", "备用长裤", "打出两对 +2 倍率", Rarity.COMMON, 5,
+        joker("trousers", "备用长裤", "打出两对 +2 倍率", Rarity.UNCOMMON, 6,
             addMult = { if (it.handType == HandType.TWO_PAIR) 2 else 0 }),
         joker("green", "绿色小丑", "每出过一手 +1 倍率", Rarity.COMMON, 4,
             addMult = { it.handsPlayed }),
         joker("redcard", "红牌", "每跳过一盲注 +3 倍率", Rarity.COMMON, 5,
             addMult = { it.blindsSkipped * 3 }),
-        joker("flash", "闪电牌", "每次重掷 +2 倍率", Rarity.UNCOMMON, 6,
+        joker("flash", "闪示卡", "每次重掷 +2 倍率", Rarity.UNCOMMON, 5,
             addMult = { it.rerolls * 2 }),
         joker("fortune", "算命师", "每用一张塔罗 +1 倍率", Rarity.COMMON, 6,
             addMult = { it.tarotsUsed }),
@@ -241,23 +241,23 @@ object Jokers {
             addMult = { if (it.faces() == 0) it.handsPlayed else 0 }),
 
         // ================= 牌型条件 =================
-        joker("sly", "狡猾小丑", "对子 +50 筹码", Rarity.COMMON, 3,
+        joker("sly", "奸诈小丑", "对子 +50 筹码", Rarity.COMMON, 4,
             chips = { if (it.handType == HandType.PAIR) 50 else 0 }),
-        joker("wily", "诡计小丑", "三条 +100 筹码", Rarity.COMMON, 4,
+        joker("wily", "狡猾小丑", "三条 +100 筹码", Rarity.COMMON, 4,
             chips = { if (it.handType == HandType.THREE_OF_A_KIND) 100 else 0 }),
-        joker("clever", "精明小丑", "两对 +80 筹码", Rarity.COMMON, 4,
+        joker("clever", "聪敏小丑", "两对 +80 筹码", Rarity.COMMON, 4,
             chips = { if (it.handType == HandType.TWO_PAIR) 80 else 0 }),
-        joker("devious", "狡诈小丑", "顺子 +100 筹码", Rarity.COMMON, 4,
+        joker("devious", "阴险小丑", "顺子 +100 筹码", Rarity.COMMON, 4,
             chips = { if (it.handType == HandType.STRAIGHT) 100 else 0 }),
-        joker("crafty", "精巧小丑", "同花 +80 筹码", Rarity.COMMON, 4,
+        joker("crafty", "精明小丑", "同花 +80 筹码", Rarity.COMMON, 4,
             chips = { if (it.handType == HandType.FLUSH) 80 else 0 }),
-        joker("jolly", "欢乐小丑", "对子 +8 倍率", Rarity.COMMON, 3,
+        joker("jolly", "开心小丑", "对子 +8 倍率", Rarity.COMMON, 3,
             addMult = { if (it.handType == HandType.PAIR) 8 else 0 }),
-        joker("zany", "疯狂小丑", "三条 +12 倍率", Rarity.COMMON, 4,
+        joker("zany", "古怪小丑", "三条 +12 倍率", Rarity.COMMON, 4,
             addMult = { if (it.handType == HandType.THREE_OF_A_KIND) 12 else 0 }),
-        joker("mad", "狂热小丑", "两对 +10 倍率", Rarity.COMMON, 4,
+        joker("mad", "疯狂小丑", "两对 +10 倍率", Rarity.COMMON, 4,
             addMult = { if (it.handType == HandType.TWO_PAIR) 10 else 0 }),
-        joker("crazy", "癫狂小丑", "顺子 +12 倍率", Rarity.COMMON, 4,
+        joker("crazy", "狂野小丑", "顺子 +12 倍率", Rarity.COMMON, 4,
             addMult = { if (it.handType == HandType.STRAIGHT) 12 else 0 }),
         joker("droll", "滑稽小丑", "同花 +10 倍率", Rarity.COMMON, 4,
             addMult = { if (it.handType == HandType.FLUSH) 10 else 0 }),
@@ -277,7 +277,7 @@ object Jokers {
             chips = { it.countSuit(Suit.SPADE) * 50 }),
         joker("onyx", "缟玛瑙", "每梅花 +7 倍率", Rarity.UNCOMMON, 7,
             addMult = { it.countSuit(Suit.CLUB) * 7 }),
-        joker("rough", "粗糙宝石", "每方块 +50 筹码", Rarity.COMMON, 7,
+        joker("rough", "粗糙宝石", "每方块 +50 筹码", Rarity.UNCOMMON, 7,
             chips = { it.countSuit(Suit.DIAMOND) * 50 }),
 
         // ================= 手中牌联动 =================
@@ -292,9 +292,7 @@ object Jokers {
                 val min = ctx.hand.minByOrNull { it.rank.order }
                 if (min != null) min.rank.chips * 2 else 0
             }),
-        joker("barrier", "屏障", "每张万能牌 +2 倍率", Rarity.UNCOMMON, 4,
-            addMult = { ctx -> ctx.scoring.count { it.enh == Enhancement.WILD } * 2 }),
-        joker("blackboard", "黑板", "手中全黑花色 ×3", Rarity.RARE, 7,
+        joker("blackboard", "黑板", "手中全黑花色 ×3", Rarity.UNCOMMON, 6,
             xMult = { ctx ->
                 val ok = ctx.hand.isNotEmpty() && ctx.hand.all {
                     it.suit == Suit.SPADE || it.suit == Suit.CLUB
@@ -305,17 +303,15 @@ object Jokers {
             xMult = { ctx -> 1.0 + ctx.steelInDeck * 0.2 }),
         joker("stonejoker", "石头小丑", "牌堆每张石头牌 +25 筹码", Rarity.UNCOMMON, 6,
             chips = { ctx -> ctx.stoneInDeck * 25 }),
-        joker("mime", "默剧", "重触发手中牌的效果", Rarity.UNCOMMON, 5,
+        joker("mime", "哑剧演员", "重触发手中牌的效果", Rarity.UNCOMMON, 5,
             xMult = { ctx -> if (ctx.hand.count { it.enh == Enhancement.STEEL } > 0) 1.5 else 1.0 }),
         joker("shootmoon", "射月", "手中每张 Q +13 倍率", Rarity.UNCOMMON, 5,
             addMult = { ctx -> ctx.hand.count { it.rank == Rank.QUEEN } * 13 }),
-        joker("raisin", "提子干", "手中每张 A +7 倍率", Rarity.UNCOMMON, 6,
-            addMult = { ctx -> ctx.hand.count { it.rank == Rank.ACE } * 7 }),
 
         // ================= 乘算爆发 =================
         joker("photograph", "照片", "首张人头牌 ×2", Rarity.COMMON, 5,
             xMult = { ctx -> if (ctx.scoring.any { it.rank.order >= 11 }) 2.0 else 1.0 }),
-        joker("obelisk", "方尖碑", "高阶牌型 ×2", Rarity.RARE, 8,
+        joker("obelisk", "方尖石塔", "高阶牌型 ×2", Rarity.RARE, 8,
             xMult = { if (it.handType.ordinal >= HandType.FLUSH.ordinal) 2.0 else 1.0 }),
         joker("baseball", "棒球卡", "每张罕见小丑 ×1.5", Rarity.RARE, 8,
             xMult = { ctx ->
@@ -333,40 +329,38 @@ object Jokers {
             xMult = { if (it.handType == HandType.PAIR) 2.0 else 1.0 }),
         joker("trio", "三重奏", "三条 ×3", Rarity.RARE, 8,
             xMult = { if (it.handType == HandType.THREE_OF_A_KIND) 3.0 else 1.0 }),
-        joker("family", "家族", "四条 ×4", Rarity.RARE, 8,
+        joker("family", "一家人", "四条 ×4", Rarity.RARE, 8,
             xMult = { if (it.handType == HandType.FOUR_OF_A_KIND) 4.0 else 1.0 }),
         joker("order", "秩序", "顺子 ×3", Rarity.RARE, 8,
             xMult = { if (it.handType == HandType.STRAIGHT) 3.0 else 1.0 }),
-        joker("tribe", "部族", "同花 ×2", Rarity.RARE, 8,
+        joker("tribe", "部落", "同花 ×2", Rarity.RARE, 8,
             xMult = { if (it.handType == HandType.FLUSH) 2.0 else 1.0 }),
-        joker("stencil", "模板小丑", "每空槽位 ×1 倍率", Rarity.UNCOMMON, 8,
+        joker("stencil", "模具小丑", "每空槽位 ×1 倍率", Rarity.UNCOMMON, 8,
             xMult = { ctx ->
                 // 空槽 = 上限 - 已占（模板自己也算占了一个，与原版一致）
                 (ctx.jokerSlots - ctx.jokerCount).coerceAtLeast(0).let { if (it == 0) 1.0 else 1.0 + it }
             }),
-        joker("loyalty", "忠诚卡", "每 6 手牌 ×4", Rarity.UNCOMMON, 5,
+        joker("loyalty", "积分卡", "每 6 手牌 ×4", Rarity.UNCOMMON, 5,
             xMult = { if (it.handsPlayed > 0 && it.handsPlayed % 6 == 0) 4.0 else 1.0 }),
 
         // ================= 引用其他小丑 =================
         joker("blueprint", "蓝图", "复制右侧小丑", Rarity.RARE, 10, copiesRight = true),
         joker("brainstorm", "头脑风暴", "复制最左小丑", Rarity.RARE, 10, copiesLeft = true),
-        joker("swash", "虚张声势", "其他小丑总售价 ×1 倍率", Rarity.COMMON, 6,
+        joker("swash", "虚张声势", "其他小丑总售价 ×1 倍率", Rarity.COMMON, 4,
             addMult = { ctx -> ctx.jokerSellTotal }),
 
         // ================= 金钱产出 =================
-        joker("golden", "金券", "每张黄金牌 +$4", Rarity.UNCOMMON, 6,
-            money = { ctx -> ctx.scoring.count { it.enh == Enhancement.GOLD } * 4 }),
+        // 黄金小丑的钱在回合结算时发（GameEngine.clearBlind），不在计分链里
+        joker("golden", "黄金小丑", "回合结束 +$4", Rarity.COMMON, 6),
         joker("business", "名片", "每张人头牌 +$1", Rarity.COMMON, 4,
             money = { it.faces() }),
-        joker("parking", "预留车位", "每张人头牌 +$1", Rarity.COMMON, 5,
+        joker("parking", "私人车位", "每张人头牌 +$1", Rarity.COMMON, 6,
             money = { it.faces() }),
-        joker("surefire", "必中", "每张红桃 +$1", Rarity.COMMON, 5,
-            money = { it.countSuit(Suit.HEART) }),
-        joker("bull", "公牛", "每 $1 得 +2 筹码", Rarity.UNCOMMON, 6,
+        joker("bull", "斗牛", "每 $1 得 +2 筹码", Rarity.UNCOMMON, 6,
             chips = { (it.money * 2).coerceAtLeast(0) }),
         joker("bootstrap", "自力更生", "每 $5 得 +2 倍率", Rarity.UNCOMMON, 7,
             addMult = { (it.money / 5) * 2 }),
-        joker("ticket", "门票", "每张黄金牌 +$4", Rarity.COMMON, 5,
+        joker("ticket", "黄金门票", "每张黄金牌 +$4", Rarity.COMMON, 5,
             money = { ctx -> ctx.scoring.count { it.enh == Enhancement.GOLD } * 4 }),
         joker("rocket", "火箭", "每击败 Boss +$1", Rarity.UNCOMMON, 6,
             money = { it.ante - 1 }),
@@ -374,7 +368,7 @@ object Jokers {
             money = { 1 }),
         joker("cloud9", "九霄云", "每张 9 +$1", Rarity.UNCOMMON, 7,
             money = { it.rankCount(9) }),
-        joker("faceless", "无面", "弃 3 张人头牌 +$5", Rarity.COMMON, 4,
+        joker("faceless", "无面小丑", "弃 3 张人头牌 +$5", Rarity.COMMON, 4,
             money = { if (it.faces() >= 3) 5 else 0 }),
         joker("rebate", "回邮", "每张 10 +$1", Rarity.UNCOMMON, 4,
             money = { it.rankCount(10) }),
@@ -382,26 +376,26 @@ object Jokers {
         // ================= 辅助 / 规则改写 =================
         joker("fourfingers", "四指", "同花顺子只需 4 张", Rarity.UNCOMMON, 7),
         joker("shortcut", "捷径", "顺子可隔一档", Rarity.UNCOMMON, 7),
-        joker("smeared", "涂抹", "红黑花色互通", Rarity.UNCOMMON, 7),
-        joker("pareidolia", "幻想性错觉", "所有牌都算人头牌", Rarity.UNCOMMON, 5,
+        joker("smeared", "模糊小丑", "红黑花色互通", Rarity.UNCOMMON, 7),
+        joker("pareidolia", "幻视", "所有牌都算人头牌", Rarity.UNCOMMON, 5,
             addMult = { ctx -> ctx.scoring.size * 2 }),
         joker("sock", "袜子与木偶", "重触发人头牌", Rarity.UNCOMMON, 6,
             chips = { ctx -> ctx.scoring.count { it.rank.order >= 11 } * 10 }),
-        joker("hack", "黑客", "重触发 2/3/4/5", Rarity.UNCOMMON, 6,
+        joker("hack", "烂脱口秀演员", "重触发 2/3/4/5", Rarity.UNCOMMON, 6,
             chips = { ctx -> ctx.scoring.count { it.rank.order in 2..5 } * 10 }),
-        joker("troubadour", "吟游诗人", "手牌 +2 · 出牌 -1", Rarity.UNCOMMON, 6),
+        joker("troubadour", "游吟诗人", "手牌 +2 · 出牌 -1", Rarity.UNCOMMON, 6),
         joker("burglar", "窃贼", "出牌 +3 · 弃牌清空", Rarity.UNCOMMON, 6),
         joker("dusk", "黄昏", "重触发最后一手", Rarity.UNCOMMON, 5,
             xMult = { if (it.handsLeft <= 1) 1.5 else 1.0 }),
-        joker("marble", "大理石", "开局加一张石头牌", Rarity.UNCOMMON, 6),
+        joker("marble", "大理石小丑", "开局加一张石头牌", Rarity.UNCOMMON, 6),
         joker("certificate", "证书", "开局给随机蜡封牌", Rarity.UNCOMMON, 6),
         joker("astronomer", "天文学家", "行星牌全部免费", Rarity.UNCOMMON, 8),
         joker("chaos", "混沌小丑", "每次商店 1 次免费重掷", Rarity.COMMON, 4),
         joker("creditcard", "信用卡", "可负债到 -$20", Rarity.COMMON, 1),
-        joker("egg", "蛋", "售出时 +$3", Rarity.COMMON, 4),
+        joker("egg", "鸡蛋", "售出时 +$3", Rarity.COMMON, 4),
         joker("giftcard", "礼品卡", "小丑售价 +$1", Rarity.UNCOMMON, 6),
         joker("turtle", "乌龟豆", "手牌 +5", Rarity.UNCOMMON, 6),
-        joker("juggler", "杂耍者", "手牌 +1", Rarity.COMMON, 4),
+        joker("juggler", "杂耍师", "手牌 +1", Rarity.COMMON, 4),
 
         // ================= 传奇：只能由幻灵「灵魂」抽到 =================
         // 原版 5 张传奇各有独立的成长计数器，这里用引擎已有的统计量代替，
@@ -419,7 +413,7 @@ object Jokers {
         // 希科不产生分数变化：它在引擎里关掉 Boss 副作用，见 GameEngine.bossSuppressed
         joker("chicot", "希科", "所有 Boss 效果失效", Rarity.LEGENDARY, 20),
         // 佩尔克也不改分数：进入商店时复制一张消耗品，见 GameEngine.leaveShop
-        joker("perkeo", "佩尔克", "商店开始时复制一张消耗品", Rarity.LEGENDARY, 20),
+        joker("perkeo", "帕奇欧", "商店开始时复制一张消耗品", Rarity.LEGENDARY, 20),
 
         // ================= 补齐到原版 150 张 =================
         // 这一组是把上一版"缺的 49 张"补上。判据仍是同一条：效果必须能在
@@ -429,13 +423,13 @@ object Jokers {
             money = { ctx ->
                 ctx.scoring.count { it.rank == Rank.EIGHT && ctx.random.nextInt(4) == 0 } * 3
             }),
-        joker("ancient", "远古", "每种花色 ×1.5", Rarity.RARE, 8,
+        joker("ancient", "古老小丑", "每种花色 ×1.5", Rarity.RARE, 8,
             xMult = { ctx -> 1.0 + 0.5 * ctx.scoring.map { it.suit }.distinct().size }),
-        joker("campfire", "篝火", "每卖 1 小丑 ×0.25", Rarity.RARE, 8,
+        joker("campfire", "篝火", "每卖 1 小丑 ×0.25", Rarity.RARE, 9,
             xMult = { 1.0 + it.jokersSold * 0.25 }),
         joker("constellation", "星座", "每张行星 ×0.1", Rarity.UNCOMMON, 6,
             xMult = { 1.0 + it.planetsUsed * 0.1 }),
-        joker("hologram", "全息图", "每买 1 小丑 ×0.25", Rarity.UNCOMMON, 6,
+        joker("hologram", "全息影像", "每买 1 小丑 ×0.25", Rarity.UNCOMMON, 7,
             xMult = { 1.0 + it.jokersBought * 0.25 }),
         joker("glassjoker", "玻璃小丑", "每碎 1 玻璃 ×0.75", Rarity.UNCOMMON, 6,
             xMult = { 1.0 + it.glassShattered * 0.75 }),
@@ -449,8 +443,6 @@ object Jokers {
             addMult = { (20 - (it.ante - 1) * 4).coerceAtLeast(0) }),
         joker("ramen", "拉面", "×2 · 每弃 1 张 -0.01", Rarity.UNCOMMON, 6,
             xMult = { (2.0 - it.discardsTotal * 0.01).coerceAtLeast(1.0) }),
-        joker("sad", "悲伤小丑", "每黑桃 +12 倍率", Rarity.COMMON, 5,
-            addMult = { it.countSuit(Suit.SPADE) * 12 }),
         joker("walkie", "对讲机", "每张 4/10 +10 筹码", Rarity.COMMON, 4,
             chips = { ctx -> ctx.scoring.count { it.rank == Rank.FOUR || it.rank == Rank.TEN } * 10 }),
         joker("castle", "城堡", "每弃 1 张 +2 筹码", Rarity.UNCOMMON, 6,
@@ -459,65 +451,81 @@ object Jokers {
             xMult = { if (it.handsPlayed < 10) 1.5 else 1.0 }),
         joker("space", "太空小丑", "每 4 手 +10 倍率", Rarity.UNCOMMON, 5,
             addMult = { (it.handsPlayed / 4) * 10 }),
-        joker("splash", "水花", "所有打出的牌都计分", Rarity.COMMON, 3),
+        joker("splash", "飞溅", "所有打出的牌都计分", Rarity.COMMON, 3),
         joker("todolist", "待办清单", "对子 +$4", Rarity.COMMON, 4,
             money = { if (it.handType == HandType.PAIR) 4 else 0 }),
         joker("trading", "交易卡", "本局首次弃牌 +$3", Rarity.UNCOMMON, 6,
             money = { if (it.discardsTotal == 0) 3 else 0 }),
         joker("dietcola", "健怡可乐", "卖出时给 2 张标签", Rarity.UNCOMMON, 6),
-        joker("drunkard", "酒鬼", "弃牌 +1", Rarity.COMMON, 4),
+        joker("drunkard", "醉汉", "弃牌 +1", Rarity.COMMON, 4),
         joker("matador", "斗牛士", "Boss 关 +$8", Rarity.UNCOMMON, 7,
             money = { if (it.bossBlind) 8 else 0 }),
         joker("mrBones", "骨头先生", "本局免死一次", Rarity.UNCOMMON, 8),
-        joker("luchador", "摔角手", "卖出时废掉 Boss", Rarity.UNCOMMON, 7),
+        joker("luchador", "摔跤手", "卖出时废掉 Boss", Rarity.UNCOMMON, 5),
         joker("ceremonial", "仪式匕首", "卖出时吞掉左侧小丑", Rarity.UNCOMMON, 6),
         joker("madness", "疯狂", "每关 ×0.5 累加", Rarity.UNCOMMON, 7,
             xMult = { 1.0 + (it.ante - 1) * 0.5 }),
         joker("vampire", "吸血鬼", "每关 ×0.1 累加", Rarity.UNCOMMON, 7,
             xMult = { 1.0 + (it.ante - 1) * 0.1 }),
-        joker("throwback", "回顾", "每跳过 1 盲注 ×0.25", Rarity.UNCOMMON, 6,
+        joker("throwback", "回溯", "每跳过 1 盲注 ×0.25", Rarity.UNCOMMON, 6,
             xMult = { 1.0 + it.blindsSkipped * 0.25 }),
-        joker("hanging", "挂饰", "首张人头牌 ×1.5", Rarity.UNCOMMON, 6,
+        joker("hanging", "挂饰", "首张人头牌 ×1.5", Rarity.COMMON, 4,
             xMult = { ctx -> if ((ctx.played.firstOrNull()?.rank?.order ?: 0) >= 11) 1.5 else 1.0 }),
-        joker("wee", "小小丑", "每张 2 +8 筹码", Rarity.UNCOMMON, 6,
+        joker("wee", "小小丑", "每张 2 +8 筹码", Rarity.RARE, 8,
             chips = { it.rankCount(2) * 8 }),
-        joker("stuntman", "特技演员", "×8 倍率 · 手牌 -2", Rarity.RARE, 8,
+        joker("stuntman", "特技演员", "×8 倍率 · 手牌 -2", Rarity.RARE, 7,
             xMult = { 8.0 }),
         joker("satellite", "卫星", "每张行星 +$1", Rarity.UNCOMMON, 6,
             money = { it.planetsUsed }),
-        joker("showman", "主持人", "商店可出现重复小丑", Rarity.UNCOMMON, 6),
+        joker("showman", "马戏团长", "小丑、塔罗、星球、幻灵可重复出现", Rarity.UNCOMMON, 5),
+        joker("hit_the_road", "上路吧杰克", "每弃一张牌 +0.5 倍率", Rarity.RARE, 8,
+            addMult = { (it.discardsTotal * 0.5).toInt() }),
+        joker("idol", "偶像", "打出的某点数牌每张 ×2", Rarity.UNCOMMON, 6,
+            xMult = { ctx ->
+                val chosen = Rank.entries[ctx.ante % Rank.entries.size]
+                var m = 1.0
+                for (c in ctx.played) if (c.rank == chosen) m *= 2.0
+                m
+            }),
+        joker("lucky_cat", "招财猫", "每张幸运牌计分 ×1.25", Rarity.UNCOMMON, 6,
+            xMult = { ctx -> 1.0 + 0.25 * ctx.scoring.count { it.enh == Enhancement.LUCKY } }),
+        joker("midas_mask", "迈达斯面具", "打出的人头牌计分时变为黄金牌", Rarity.UNCOMMON, 7,
+            money = { ctx -> ctx.scoring.count { it.rank.order in 11..13 } * 3 }),
+        joker("seeing_double", "重影", "计分含梅花+其他花色 ×2", Rarity.UNCOMMON, 6,
+            xMult = { ctx ->
+                val suits = ctx.scoring.map { it.suit }.toSet()
+                if (Suit.CLUB in suits && (suits - Suit.CLUB).isNotEmpty()) 2.0 else 1.0
+            }),
         joker("sixth", "第六感", "打出单张 6 得 \$3", Rarity.UNCOMMON, 6,
             money = { ctx ->
                 if (ctx.played.size == 1 && ctx.played[0].rank == Rank.SIX) 3 else 0
             }),
-        joker("driver", "驾照", "每张增强牌 ×0.15", Rarity.RARE, 8,
+        joker("driver", "驾照", "每张增强牌 ×0.15", Rarity.RARE, 7,
             xMult = { ctx -> 1.0 + ctx.scoring.count { !it.enh.isNone } * 0.15 }),
-        joker("merry", "快乐安迪", "弃牌 +3 · 手牌 -1", Rarity.UNCOMMON, 6),
+        joker("merry", "快乐安迪", "弃牌 +3 · 手牌 -1", Rarity.UNCOMMON, 7),
         joker("invisible", "隐形小丑", "×2 倍率", Rarity.RARE, 8,
             xMult = { 2.0 }),
         joker("riff", "即兴", "每关送 2 个小丑", Rarity.COMMON, 6),
         joker("hallucination", "幻觉", "每关首手 +\$4", Rarity.COMMON, 4,
             money = { if (it.handsPlayed == 0) 4 else 0 }),
-        joker("cartomancer", "纸牌师", "每关结束给 1 张塔罗", Rarity.UNCOMMON, 6),
-        joker("burnt", "烧焦", "弃牌时升级最低牌型", Rarity.UNCOMMON, 8),
-        joker("seance", "降神", "同花顺给 1 张幻灵", Rarity.UNCOMMON, 6),
+        joker("cartomancer", "卡牌术士", "每关结束给 1 张塔罗", Rarity.UNCOMMON, 6),
+        joker("burnt", "烧焦小丑", "弃牌时升级最低牌型", Rarity.RARE, 8),
+        joker("seance", "通灵", "同花顺给 1 张幻灵", Rarity.UNCOMMON, 6),
         joker("delayed", "延迟满足", "不出牌时每弃牌 +$2", Rarity.COMMON, 4,
             money = { ctx -> if (ctx.handsLeft > 0) 0 else ctx.discardsLeft * 2 }),
         joker("vagabond", "流浪者", "钱 ≤\$4 时 +3 倍率", Rarity.RARE, 8,
             addMult = { if (it.money <= 4) 3 else 0 }),
-        joker("superposition", "叠加", "A + 顺子给 \$3", Rarity.COMMON, 4,
+        joker("superposition", "叠加态", "A + 顺子给 \$3", Rarity.COMMON, 4,
             money = { ctx ->
                 if (ctx.rankCount(14) > 0 &&
                     (ctx.handType == HandType.STRAIGHT || ctx.handType == HandType.STRAIGHT_FLUSH)
                 ) 3 else 0
             }),
-        joker("oops", "全是 6", "每张 6 +6 倍率", Rarity.COMMON, 4,
+        joker("oops", "六六大顺", "每张 6 +6 倍率", Rarity.UNCOMMON, 4,
             addMult = { it.rankCount(6) * 6 }),
-        joker("goldjoker", "金小丑", "每关首手 +\$4", Rarity.COMMON, 6,
-            money = { if (it.handsPlayed == 0) 4 else 0 }),
         joker("dnajoker", "DNA", "单张出牌 ×1.5", Rarity.RARE, 8,
             xMult = { ctx -> if (ctx.played.size == 1) 1.5 else 1.0 }),
-        joker("hiker", "徒步者", "×1.5 倍率", Rarity.UNCOMMON, 6,
+        joker("hiker", "徒步者", "×1.5 倍率", Rarity.UNCOMMON, 5,
             xMult = { 1.5 }),
         joker("erosion", "侵蚀", "每缺 1 张牌 +4 倍率", Rarity.UNCOMMON, 6,
             addMult = { ctx -> ((52 - ctx.deckSize).coerceAtLeast(0)) * 4 }),
@@ -536,14 +544,36 @@ object Jokers {
      * 上一版用 `shuffled().take(n)`，等于完全忽略权重 —— 稀有卡出现率和普通卡
      * 一样，等于没有稀有度。这里改成真正的加权抽取（70/25/5）。
      */
-    fun rollOne(random: kotlin.random.Random, owned: Set<String>): JokerDef? {
-        val pool = shopPool.filter { it.id !in owned }
+    /**
+     * 从商店池里抽一张。
+     *
+     * [ante] 与 [rareUnlocked] 一起决定稀有档的权重 —— 原版的曲线是随底注走的：
+     * 第 1–2 关稀有档为 0，第 3–4 关很低，第 5 关起才回到 5%。开局几关
+     * "抽到的都是普通牌"这种朴素感，是节奏的一半。手表版把 [rareUnlocked]
+     * 单独拎出来，是因为首次通关前整档都不该出现（见 [Unlocks]）。
+     */
+    fun rollOne(
+        random: kotlin.random.Random,
+        owned: Set<String>,
+        ante: Int = 1,
+        rareUnlocked: Boolean = true,
+    ): JokerDef? {
+        val pool = shopPool.filter {
+            it.id !in owned && (rareUnlocked || it.rarity != Rarity.RARE)
+        }
         if (pool.isEmpty()) return null
-        val total = pool.sumOf { it.rarity.weight }
+        fun weightOf(r: Rarity): Int = when {
+            r != Rarity.RARE -> r.weight
+            !rareUnlocked -> 0
+            ante <= 2 -> 0
+            ante <= 4 -> 1
+            else -> r.weight
+        }
+        val total = pool.sumOf { weightOf(it.rarity) }
         if (total <= 0) return pool[random.nextInt(pool.size)]
         var r = random.nextInt(total)
         for (j in pool) {
-            r -= j.rarity.weight
+            r -= weightOf(j.rarity)
             if (r < 0) return j
         }
         return pool.last()

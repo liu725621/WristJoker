@@ -246,41 +246,59 @@ def draw_cardback(d, cx, cy, w, h, base=INK800):
 
 
 def draw_joker_badge(d, cx, cy, size, color, seed=0):
-    """8×8 像素小丑头像。
+    """矢量徽记小丑头像。
 
-    与 Compose 的 `JokerPortrait` 同一套比例：帽尖一格、帽檐六格、脸六×四、
-    两只眼睛、一张嘴。之前这里画的是 `(·_·)` 这种字符脸，和真实界面差太远 ——
-    预览图是给人看门面的，不能拿占位符糊过去。
+    与 Compose 的 `JokerPortrait` 同构：按小丑「在干什么」挑一个稳定的矢量符号，
+    取代原来的 8×8 哈希假脸 —— 加钱的画硬币、加倍的画叉、涨筹码的画筹码堆。
+    seed 在这里只用来轮换示例类别，让一张预览图里能同时看到几种徽记。
     """
     rrect(d, cx, cy, size, size, 2, fill=SURFACE, outline=color, width=2)
-    s = px(size) * 0.80
+    s = px(size) * 0.72
     x0 = cx - s / 2
     y0 = cy - s / 2
     u = s / 8
 
-    def cell(gx, gy, gw, gh, c):
-        d.rectangle(
-            [x0 + gx * u, y0 + gy * u, x0 + (gx + gw) * u - 0.5, y0 + (gy + gh) * u - 0.5],
-            fill=c,
-        )
+    def X(t):
+        return x0 + t * u
 
-    hat = [SUIT_RED, CHIP, PURPLE, MONEY][seed % 4]
-    cell(3, 0, 2, 1, hat)          # 帽尖
-    cell(1, 1, 6, 1, hat)          # 帽檐
-    cell(1, 2, 6, 4, CREAM)        # 脸
-    if seed % 3 == 0:              # 眯眼
-        cell(2, 3, 2, 1, FELT_DARK)
-        cell(5, 3, 2, 1, FELT_DARK)
-    elif seed % 3 == 1:            # 圆眼
-        cell(2, 3, 1, 1, FELT_DARK)
-        cell(5, 3, 1, 1, FELT_DARK)
-    else:                          # 竖眼
-        cell(2, 3, 1, 2, FELT_DARK)
-        cell(5, 3, 1, 2, FELT_DARK)
-    if seed % 2 == 0:
-        cell(3, 5, 2, 1, DIM)      # 小嘴
-    else:
-        cell(2, 5, 4, 1, SUIT_RED)  # 咧嘴
+    def Y(t):
+        return y0 + t * u
+
+    glyph = seed % 9
+    if glyph == 0:      # 筹码：三根横条
+        for i in range(3):
+            yy = Y(2.4 + i * 1.7)
+            d.rounded_rectangle([X(1.4), yy, X(6.6), yy + u * 1.3], radius=u * 0.5, fill=CHIP)
+    elif glyph == 1:    # 加号
+        d.rectangle([X(3.55), Y(1.9), X(4.45), Y(6.1)], fill=MULT)
+        d.rectangle([X(1.9), Y(3.55), X(6.1), Y(4.45)], fill=MULT)
+    elif glyph == 2:    # 叉
+        d.line([X(1.6), Y(1.6), X(6.4), Y(6.4)], fill=MULT, width=max(1, int(u * 0.85)))
+        d.line([X(6.4), Y(1.6), X(1.6), Y(6.4)], fill=MULT, width=max(1, int(u * 0.85)))
+    elif glyph == 3:    # 硬币
+        d.ellipse([X(1.3), Y(1.3), X(6.7), Y(6.7)], fill=MONEY)
+        d.ellipse([X(2.5), Y(2.5), X(5.5), Y(5.5)], fill=SURFACE)
+        d.rectangle([X(3.55), Y(3.1), X(4.45), Y(4.9)], fill=MONEY)
+    elif glyph == 4:    # 三叶草
+        d.ellipse([X(2.85), Y(1.55), X(5.15), Y(3.85)], fill=GREEN)
+        d.ellipse([X(1.45), Y(2.95), X(3.75), Y(5.25)], fill=GREEN)
+        d.ellipse([X(4.25), Y(2.95), X(6.55), Y(5.25)], fill=GREEN)
+        d.rectangle([X(3.7), Y(4.5), X(4.3), Y(6.8)], fill=GREEN)
+    elif glyph == 5:    # 一张牌（牌型）
+        d.rounded_rectangle([X(2), Y(1.5), X(6), Y(6.5)], radius=u * 0.5, fill=CREAM)
+        d.polygon([(X(4), Y(2.7)), (X(5), Y(4)), (X(4), Y(5.3)), (X(3), Y(4))], fill=SUIT_RED)
+    elif glyph == 6:    # 红桃（花色）
+        d.ellipse([X(2.2), Y(1.6), X(4.1), Y(3.5)], fill=SUIT_RED)
+        d.ellipse([X(3.9), Y(1.6), X(5.8), Y(3.5)], fill=SUIT_RED)
+        d.polygon([(X(2.2), Y(3.0)), (X(5.8), Y(3.0)), (X(4), Y(6.6))], fill=SUIT_RED)
+    elif glyph == 7:    # 弃牌：牌 + 箭头
+        d.rounded_rectangle([X(1.4), Y(2), X(5), Y(6)], radius=u * 0.5, fill=CARD_EDGE)
+        d.line([X(5.2), Y(4), X(6.5), Y(4)], fill=BOSS_RED, width=max(1, int(u * 0.55)))
+        d.polygon([(X(6.5), Y(3.4)), (X(7.1), Y(4)), (X(6.5), Y(4.6))], fill=BOSS_RED)
+    else:               # 皇冠（传奇）
+        d.polygon([(X(1.6), Y(6.1)), (X(1.6), Y(3.1)), (X(3), Y(4.6)), (X(4), Y(2.1)),
+                   (X(5), Y(4.6)), (X(6.4), Y(3.1)), (X(6.4), Y(6.1))], fill=MONEY)
+        d.rectangle([X(1.6), Y(6.1), X(6.4), Y(6.9)], fill=MONEY)
 
 
 def draw_button(d, cx, cy, w, h, label, accent, filled=True, enabled=True):
@@ -360,7 +378,7 @@ def screen_menu(img):
     d = ImageDraw.Draw(img)
     rows, _ = layout_bands([
         ("back", 24, 2), ("title", 22, 1), ("pixel", 9, 2),
-        ("hint", 11, 3), ("btn", 26, 3), ("btn2", 24, 3), ("ch", 22, 2),
+        ("hint", 11, 3), ("btn", 26, 3), ("pair", 22, 3), ("long", 20, 2),
         ("tools", 20, 0),
     ])
     for name, w, cy, h in rows:
@@ -376,10 +394,16 @@ def screen_menu(img):
             text(d, cx, cy, "A3 · 小盲注 · $17 · 红注", 7, CREAM)
         elif name == "btn":
             draw_button(d, cx, cy, w * 0.62, 24, "继续 A3", MONEY)
-        elif name == "btn2":
-            draw_button(d, cx, cy, w * 0.52, 22, "新的一局", CHIP, filled=False)
-        elif name == "ch":
-            draw_button(d, cx, cy, w * 0.46, 20, "挑战 · 20 个", PURPLE, filled=False)
+        elif name == "pair":
+            # 新局与挑战并排：两个都是"开一局"，分两行会把主按钮挤小
+            bw = w * 0.34
+            draw_button(d, cx - px(bw) / 2 - px(3), cy, bw, 22, "新的一局", CHIP, filled=False)
+            draw_button(d, cx + px(bw) / 2 + px(3), cy, bw, 22, "挑战 20", PURPLE, filled=False)
+        elif name == "long":
+            bw = w * 0.26
+            draw_button(d, cx - px(bw + 5), cy, bw, 19, "生涯", MONEY, filled=False)
+            draw_button(d, cx, cy, bw, 19, "成就", AMBER, filled=False)
+            draw_button(d, cx + px(bw + 5), cy, bw, 19, "种子", GREEN, filled=False)
         elif name == "tools":
             bw = w * 0.27
             draw_button(d, cx - px(bw) / 2 - px(3.5), cy, bw, 19, "图鉴", MONEY, filled=False)
@@ -572,8 +596,17 @@ def screen_playing(img):
                   fill=(58, 20, 20), outline=MULT, width=2)
             text(d, cx + px(w) / 2 - px(bw2) / 2, cy, "12.5", 11, MULT, bold=True)
         elif name == "e":
-            draw_progress(d, cx - px(30), cy, w - 62, h, 0.36)
-            text(d, cx + px(w) / 2, cy, "1.8万/5万", 5, DIM, anchor="rm")
+            barw = w - 62
+            x0 = cx - px(30)
+            # 先铺预估层（0 → 62%），再用当前进度（0 → 36%）盖在上面 ——
+            # 与 Compose 里的叠放顺序一致：绿色在下、金色在上，
+            # 金色结束之后露出来的那截绿才是"这一手还能走多远"。
+            d.rounded_rectangle(
+                [x0, cy - px(2), x0 + px(barw * 0.62), cy + px(2)],
+                radius=px(2), fill=(90, 120, 96))
+            draw_progress(d, x0, cy, barw, h, 0.36)
+            # 预估够不够过：够就 ✓ 打完后总分，不够就 + 这一手的分
+            text(d, cx + px(w) / 2, cy, "\u2713 3.1\u4e07", 5, GREEN, anchor="rm")
         elif name == "f":
             # 手牌：单排扇形（原作摆法），选中的抬起 5dp 并压到相邻牌之上
             cw, chh = 25.0, 31.0
@@ -1043,6 +1076,95 @@ def screen_runinfo(img):
             draw_button(d, cx, cy, w * 0.34, 18, "返回", CHIP, filled=False)
 
 
+def screen_career(img):
+    """生涯统计：3 × 4 十二格。"""
+    d = ImageDraw.Draw(img)
+    rows, _ = layout_bands([("head", 11, 2), ("grid", 74, 2), ("back", 20, 0)])
+    cells = [
+        ("7", "\u901a\u5173", GREEN), ("8", "\u6700\u9ad8\u5e95\u6ce8", MONEY), ("3", "\u6700\u957f\u8fde\u80dc", GOLD),
+        ("248K", "\u5355\u5c40\u6700\u9ad8", CREAM), ("12,480", "\u5355\u624b\u6307\u6700\u9ad8", CHIP), ("$52", "\u6700\u9ad8\u6301\u5e01", MONEY),
+        ("2,140", "\u7d2f\u8ba1\u51fa\u724c", DIM), ("486", "\u7d2f\u8ba1\u5f03\u724c", DIM), ("63", "\u89c1\u8fc7\u5c0f\u4e11", PURPLE),
+        ("35%", "\u901a\u5173\u7387", GREEN), ("306", "\u573a\u5747\u51fa\u724c", DIM), ("69", "\u573a\u5747\u5f03\u724c", DIM),
+    ]
+    for name, w, cy, h in rows:
+        cx = W / 2
+        if name == "head":
+            text(d, cx - px(w) / 2, cy, "\u751f\u6daf", 11, MONEY, anchor="lm", bold=True)
+            text(d, cx + px(w) / 2, cy, "20 \u5c40", 6.5, DIM, anchor="rm")
+        elif name == "grid":
+            for i, (v, l, col) in enumerate(cells):
+                gx = cx + px(w) * ((i % 3) - 1) / 3
+                gy = cy - px(h) / 2 + px(9) + px(18) * (i // 3)
+                # 数字偏上、标签偏下：9sp 与 5.5sp 两个字形挤在 18dp 里，
+                # 中心对中心必然压字，所以各自让开 2dp。
+                text(d, gx, gy - px(2), v, 9, col, bold=True)
+                text(d, gx, gy + px(5), l, 5.5, DIM)
+        elif name == "back":
+            draw_button(d, cx, cy, w * 0.5, 20, "\u8fd4\u56de", CHIP, filled=False)
+
+
+def screen_ach(img):
+    """\u6210\u5c31\uff1a20 \u6761\u5217\u8868\uff0c\u5df2\u8fbe\u6210\u7684\u4eae\u8272\u3002"""
+    d = ImageDraw.Draw(img)
+    rows, _ = layout_bands([("head", 11, 2), ("list", 76, 2), ("back", 20, 0)])
+    items = [
+        ("\u5750\u4e0b\u6765", "\u6253\u5b8c\u7b2c\u4e00\u5c40", True, GOLD),
+        ("\u5f00\u5f20", "\u901a\u5173\u4e00\u6b21", True, CREAM),
+        ("\u8fc7\u534a", "\u6253\u5230\u7b2c 5 \u5173", True, GOLD),
+        ("\u4e07", "\u5355\u624b\u6307 10,000 \u5206", True, GOLD),
+        ("\u5341\u4e07", "\u5355\u624b\u6307 100,000 \u5206", False, CREAM),
+        ("\u767e\u4e07", "\u5355\u624b\u6307 1,000,000 \u5206", False, MONEY),
+        ("\u901a\u5173", "\u6253\u5230\u7b2c 8 \u5173", False, MONEY),
+    ]
+    for name, w, cy, h in rows:
+        cx = W / 2
+        if name == "head":
+            text(d, cx - px(w) / 2, cy, "\u6210\u5c31", 11, MONEY, anchor="lm", bold=True)
+            text(d, cx + px(w) / 2, cy, "4/20", 6.5, MONEY, anchor="rm")
+        elif name == "list":
+            y0 = cy - px(h) / 2 + px(1)
+            # 视口 76dp 只放得下 4 项半；真实界面可滚动，预览只画放得下的部分
+            for i, (t, desc, got, col) in enumerate(items[:4]):
+                ry = y0 + px(8) + px(17) * i
+                rrect(d, cx - px(w) / 2 + px(2.5), ry, 5, 5, 1,
+                      fill=col if got else (58, 51, 42))
+                text(d, cx - px(w) / 2 + px(8), ry - px(3), t, 7.5,
+                     CREAM if got else DIM, anchor="lm", bold=got)
+                text(d, cx - px(w) / 2 + px(8), ry + px(4), desc, 5.5,
+                     DIM if got else (120, 112, 96), anchor="lm")
+        elif name == "back":
+            draw_button(d, cx, cy, w * 0.5, 20, "\u8fd4\u56de", CHIP, filled=False)
+
+
+def screen_seed(img):
+    """\u79cd\u5b50\u5c40\uff1a\u516d\u4f4d\u6570\u5b57\uff0c\u5f53\u524d\u4f4d\u9ad8\u4eae\u3002"""
+    d = ImageDraw.Draw(img)
+    rows, _ = layout_bands([("head", 11, 2), ("digits", 30, 2), ("hint", 14, 2), ("btns", 20, 0)])
+    for name, w, cy, h in rows:
+        cx = W / 2
+        if name == "head":
+            text(d, cx - px(w) / 2, cy, "\u79cd\u5b50\u5c40", 11, MONEY, anchor="lm", bold=True)
+            text(d, cx + px(w) / 2, cy, "\u6bcf\u65e5 20261121", 6, DIM, anchor="rm")
+        elif name == "digits":
+            digs = "202611"
+            for i, ch in enumerate(digs):
+                gx = cx + px(22 + 3) * (i - 2.5)
+                on = i == 5
+                rrect(d, gx, cy, 22, 28, 3,
+                      fill=(58, 51, 42) if on else SURFACE,
+                      outline=(224, 163, 92) if on else (59, 51, 42),
+                      width=2 if on else 1)
+                text(d, gx, cy, ch, 15, CREAM, bold=True)
+        elif name == "hint":
+            text(d, cx, cy, "\u8f6c\u8868\u51a0\u6539\u4f4d \u00b7 \u70b9\u6570\u5b57\u52a0\u4e00", 6, DIM)
+        elif name == "btns":
+            # 152 宽三等分：60 + 5 + 42 + 5 + 40
+            draw_button(d, cx - px(46), cy, 60, 20, "\u5f00\u5c40", MONEY)
+            draw_button(d, cx + px(10), cy, 42, 20, "\u6bcf\u65e5", CHIP, filled=False)
+            draw_button(d, cx + px(56), cy, 40, 20, "\u8fd4\u56de", DIM, filled=False)
+
+
+
 SCREENS = [
     ("menu", "开始界面", screen_menu),
     ("deck", "牌组选择（弦长+赌注）", screen_deck),
@@ -1059,6 +1181,9 @@ SCREENS = [
     ("runinfo", "牌型等级·Run Info", screen_runinfo),
     ("collection", "图鉴·5 类分页", screen_collection),
     ("settings", "设置·五项即时生效", screen_settings),
+    ("career", "生涯·十二格统计", screen_career),
+    ("ach", "成就·20 条", screen_ach),
+    ("seed", "种子·六位可调", screen_seed),
 ]
 
 
