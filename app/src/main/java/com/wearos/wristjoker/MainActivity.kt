@@ -165,10 +165,14 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
             p != Phase.GAME_OVER && p != Phase.WIN
         ) {
             store.persist(engine)
-            // 卡片（Tile）读的是同一份存档。出牌 / 结算 / 进商店都该让卡片跟上，
-            // 具体节流在 TileRefresh 里做。
-            TileRefresh.nudge(context)
         }
+        // 卡片（Tile）读的是同一份存档，所以阶段一变就该让它跟上。
+        // 结束态要强制刷：那一帧 `store.wipe()` 把存档抹了，卡片得立刻
+        // 退回"轻触开局"，否则通关后卡片还挂着上一局的分数。
+        TileRefresh.nudge(
+            context,
+            force = p == Phase.GAME_OVER || p == Phase.WIN,
+        )
         // 图鉴：把这一帧"出现过"的东西都记成已解锁。商店里摆着的、
         // 手里拿着的、包内开出的都算 —— 玩家见过就不该在图鉴里还是个问号。
         store.markSeen(seenIdsOf(ui))
@@ -196,9 +200,28 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                 ui = ui,
                 bestAnte = store.bestAnte,
                 bestHand = store.bestHand,
-                onContinue = { refresh() },
-                onNewRun = { engine.toDeckSelect(); refresh() },
-                onChallenges = { engine.toChallengeSelect(); refresh() },
+                // 「继续」= 从磁盘把那一局读回来。引擎此时已经被 toMenu() 推到
+                // MENU，只有存档里还留着 PLAYING 的那一帧。
+                onContinue = {
+                    if (store.restore(engine)) {
+                        Haptics.tap(2)
+                    }
+                    refresh()
+                },
+                onNewRun = {
+                    // 开新局 = 放弃旧局，顺手把存档抹掉：否则在选牌组页退出 App，
+                    // 下次启动会被旧档"复活"回上一局，玩家会以为点错了按钮。
+                    store.wipe()
+                    engine.hasSave = false
+                    engine.toDeckSelect()
+                    refresh()
+                },
+                onChallenges = {
+                    store.wipe()
+                    engine.hasSave = false
+                    engine.toChallengeSelect()
+                    refresh()
+                },
                 onCollection = {
                     seen = store.seen()
                     overlay = Overlay.COLLECTION
@@ -286,6 +309,14 @@ fun WristJokerApp(engine: GameEngine, store: SaveStore) {
                 },
                 onOpenDeck = { overlay = Overlay.DECK },
                 onOpenInfo = { overlay = Overlay.INFO },
+                onExit = {
+                    // 先落盘再改 phase：toMenu() 之后 refresh() 就不再有
+                    // "进行中的一局"可写，顺序反了会丢这一局。
+                    store.persist(engine)
+                    engine.toMenu()
+                    Haptics.tap(1)
+                    refresh()
+                },
                 sortMode = sortMode,
                 speed = when (animSpeed) {
                     0 -> .7f

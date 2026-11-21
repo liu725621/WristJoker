@@ -85,7 +85,9 @@ fun MenuScreen(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val hasRun = ui.hasSave && ui.phase != Phase.MENU
+    // 只看"磁盘上有没有一局"，不看 phase：局内退出会先把进度落盘再 toMenu()，
+    // 此时 phase 已经是 MENU，但那一局是存在的、可以接着打。
+    val hasRun = ui.hasSave
     RoundPage(MENU, modifier) { L ->
         BandRow(L.w[0], L.h[0], horizontalArrangement = Arrangement.Center) {
             Box(
